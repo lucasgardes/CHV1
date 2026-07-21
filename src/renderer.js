@@ -36,6 +36,32 @@ import {
 } from "./modules/funscript-view.js";
 
 import {
+  getVideoById
+} from "./data/videos.js";
+
+import {
+  GAME_STATUS,
+  GameState
+} from "./game/game-state.js";
+
+import {
+  MapController
+} from "./game/map/map-controller.js";
+
+import {
+  getEventById
+} from "./data/events.js";
+
+import {
+  getItemById,
+  getRandomAvailableItem
+} from "./data/items.js";
+
+import {
+  ItemController
+} from "./game/item-controller.js";
+
+import {
   APP_CONFIG,
   DEVICE_CONFIG,
   FUNSCRIPT_TEST_CONFIG,
@@ -53,8 +79,20 @@ const statusText = document.querySelector("#video-status");
 const currentTimeText = document.querySelector("#current-time");
 const durationText = document.querySelector("#duration");
 
+const gameState = new GameState();
+
+const mapController = new MapController({
+  gameState
+});
+
+const itemController = new ItemController({
+  gameState
+});
+
+
 let funscriptActions = [];
 let funscriptView = null;
+let currentEncounter = null;
 
 // --------------------------------------------------
 // INTIFACE CENTRAL
@@ -80,6 +118,42 @@ const testFunscriptButton =
 
 const stopFunscriptButton =
   document.querySelector("#stop-funscript-button");
+
+const mapNodeList =
+  document.querySelector("#map-node-list");
+
+const goldValue =
+  document.querySelector("#gold-value");
+
+  const mapScreen =
+  document.querySelector("#map-screen");
+
+const eventScreen =
+  document.querySelector("#event-screen");
+
+const eventTitle =
+  document.querySelector("#event-title");
+
+const eventDescription =
+  document.querySelector("#event-description");
+
+const eventChoiceList =
+  document.querySelector("#event-choice-list");
+
+const rewardScreen =
+  document.querySelector("#reward-screen");
+
+const rewardChoiceList =
+  document.querySelector("#reward-choice-list");
+
+const inventoryValue =
+  document.querySelector("#inventory-value");
+
+const activeItemStatus =
+  document.querySelector("#active-item-status");
+
+const activeItemList =
+  document.querySelector("#active-item-list");
 
 if (!(deviceControlStatus instanceof HTMLElement)) {
   throw new Error(
@@ -112,6 +186,78 @@ if (!(testFunscriptButton instanceof HTMLButtonElement)) {
 if (!(stopFunscriptButton instanceof HTMLButtonElement)) {
   throw new Error(
     "Le bouton d'arrêt du funscript est introuvable."
+  );
+}
+
+if (!(mapNodeList instanceof HTMLDivElement)) {
+  throw new Error(
+    "La liste des cases de la carte est introuvable."
+  );
+}
+
+if (!(goldValue instanceof HTMLElement)) {
+  throw new Error(
+    "L’affichage de l’or est introuvable."
+  );
+}
+
+if (!(mapScreen instanceof HTMLElement)) {
+  throw new Error(
+    "L’écran de carte est introuvable."
+  );
+}
+
+if (!(eventScreen instanceof HTMLElement)) {
+  throw new Error(
+    "L’écran d’événement est introuvable."
+  );
+}
+
+if (!(eventTitle instanceof HTMLElement)) {
+  throw new Error(
+    "Le titre de l’événement est introuvable."
+  );
+}
+
+if (!(eventDescription instanceof HTMLElement)) {
+  throw new Error(
+    "La description de l’événement est introuvable."
+  );
+}
+
+if (!(eventChoiceList instanceof HTMLDivElement)) {
+  throw new Error(
+    "La liste des choix de l’événement est introuvable."
+  );
+}
+
+if (!(rewardScreen instanceof HTMLElement)) {
+  throw new Error(
+    "L’écran de récompense est introuvable."
+  );
+}
+
+if (!(rewardChoiceList instanceof HTMLDivElement)) {
+  throw new Error(
+    "La liste des récompenses est introuvable."
+  );
+}
+
+if (!(inventoryValue instanceof HTMLElement)) {
+  throw new Error(
+    "L’affichage de l’inventaire est introuvable."
+  );
+}
+
+if (!(activeItemStatus instanceof HTMLElement)) {
+  throw new Error(
+    "Le statut des objets utilisables est introuvable."
+  );
+}
+
+if (!(activeItemList instanceof HTMLDivElement)) {
+  throw new Error(
+    "La liste des objets utilisables est introuvable."
   );
 }
 
@@ -238,12 +384,15 @@ const videoPlayer = new VideoPlayerController({
 
   async onPlay() {
     await startVideoFunscriptSync();
+    renderActiveItems();
   },
 
   async onPause({ freezeAtCurrentPosition }) {
     await stopVideoFunscriptSync({
       freezeAtCurrentPosition
     });
+
+    renderActiveItems();
   },
 
   async onSeeking({ freezeAtCurrentPosition }) {
@@ -263,6 +412,19 @@ const videoPlayer = new VideoPlayerController({
 
     deviceControlStatus.textContent =
       "Vidéo terminée, appareil arrêté.";
+
+    try {
+      await completeCurrentEncounter();
+    } catch (error) {
+      console.error(
+        "Impossible de terminer la rencontre :",
+        error
+      );
+
+      statusText.textContent =
+        "Erreur lors de la fin de la rencontre.";
+    }
+    renderActiveItems();
   },
 
   onError(error) {
@@ -275,9 +437,704 @@ const videoPlayer = new VideoPlayerController({
   }
 });
 
+async function loadEncounter(videoId) {
+  const encounter = getVideoById(videoId);
+
+  if (encounter === null) {
+    throw new Error(`Vidéo introuvable : ${videoId}`);
+  }
+
+  await stopVideoFunscriptSync();
+
+  currentEncounter = encounter;
+  funscriptActions = [];
+
+  video.pause();
+  video.src = encounter.videoPath;
+  video.load();
+
+  funscriptView.setFunscriptPath(encounter.funscriptPath);
+  await funscriptView.load();
+
+  statusText.textContent = encounter.title;
+
+  itemController.resetForEncounter();
+
+  try {
+    await video.play();
+  } catch (error) {
+    console.error(
+      "Impossible de lancer automatiquement la vidéo :",
+      error
+    );
+
+    statusText.textContent =
+      "Vidéo chargée. Appuie sur Lecture pour commencer.";
+  }
+  
+  renderActiveItems();
+  updateDeviceControlButtons();
+}
+
+async function completeCurrentEncounter() {
+  const encounterState =
+    gameState.currentEncounter;
+
+  if (encounterState === null) {
+    console.warn(
+      "Aucune rencontre active à terminer."
+    );
+
+    return;
+  }
+
+  const encounter =
+    getVideoById(encounterState.encounterId);
+
+  if (encounter === null) {
+    throw new Error(
+      `Rencontre introuvable : ${encounterState.encounterId}`
+    );
+  }
+
+  const rewardGold =
+    Number.isFinite(encounter.rewardGold)
+      ? encounter.rewardGold
+      : 0;
+
+  gameState.completeCurrentNode();
+
+  if (encounter.type === "boss") {
+    gameState.setStatus(
+      GAME_STATUS.VICTORY
+    );
+
+    statusText.textContent =
+      `Boss vaincu ! Récompense : ${rewardGold} or.`;
+
+    goldValue.textContent =
+      String(gameState.gold);
+
+    console.log(
+      "Partie gagnée :",
+      gameState
+    );
+
+    return;
+  }
+
+  if (encounter.type === "elite") {
+    gameState.setStatus(
+      GAME_STATUS.REWARD
+    );
+
+    renderEliteReward(encounter);
+
+    console.log(
+      "Récompense d’élite affichée :",
+      encounter
+    );
+
+    return;
+  }
+
+  gameState.addGold(rewardGold);
+  gameState.setCurrentEncounter(null);
+
+  gameState.setStatus(
+    GAME_STATUS.MAP
+  );
+
+  statusText.textContent =
+    `Rencontre terminée : +${rewardGold} or`;
+
+  renderMap();
+
+  console.log(
+    "Rencontre terminée :",
+    gameState
+  );
+}
+
+function renderActiveItems() {
+  activeItemList.replaceChildren();
+
+  if (gameState.status !== GAME_STATUS.ENCOUNTER) {
+    activeItemStatus.textContent =
+      "Les objets sont utilisables pendant une rencontre.";
+
+    return;
+  }
+
+  const usableItems = gameState.inventory
+    .map((itemId) => getItemById(itemId))
+    .filter((item) => {
+      return (
+        item !== null &&
+        item.type === "rechargeable"
+      );
+    });
+
+  if (usableItems.length === 0) {
+    activeItemStatus.textContent =
+      "Aucun objet utilisable.";
+
+    return;
+  }
+
+  activeItemStatus.textContent =
+    "Choisis un objet à utiliser.";
+
+  for (const item of usableItems) {
+    const button =
+      document.createElement("button");
+
+    button.type = "button";
+    button.className =
+      "active-item-button";
+
+    button.textContent =
+      item.name;
+
+    if (item.id === "time-out") {
+      button.disabled =
+        !itemController.isAvailable("time-out") ||
+        video.paused ||
+        video.ended;
+    } else {
+      button.disabled = true;
+      button.title =
+        "Cet objet n’est pas encore implémenté.";
+    }
+
+    button.addEventListener("click", () => {
+      void useActiveItem(item.id);
+    });
+
+    activeItemList.append(button);
+  }
+}
+
+async function useActiveItem(itemId) {
+  try {
+    if (gameState.status !== GAME_STATUS.ENCOUNTER) {
+      throw new Error(
+        "Aucune rencontre n’est actuellement en cours."
+      );
+    }
+
+    if (!itemController.hasItem(itemId)) {
+      throw new Error(
+        `L’objet ${itemId} n’est pas possédé.`
+      );
+    }
+
+    switch (itemId) {
+      case "time-out":
+        await useTimeOut();
+        break;
+
+      default:
+        throw new Error(
+          `L’objet ${itemId} n’est pas encore utilisable.`
+        );
+    }
+  } catch (error) {
+    console.error(
+      "Impossible d’utiliser l’objet :",
+      error
+    );
+
+    activeItemStatus.textContent =
+      "Impossible d’utiliser cet objet.";
+  }
+}
+
+function wait(durationMilliseconds) {
+  return new Promise((resolve) => {
+    window.setTimeout(
+      resolve,
+      durationMilliseconds
+    );
+  });
+}
+
+async function runCountdown(
+  durationSeconds,
+  onTick
+) {
+  for (
+    let remainingSeconds = durationSeconds;
+    remainingSeconds > 0;
+    remainingSeconds -= 1
+  ) {
+    onTick(remainingSeconds);
+
+    await wait(1000);
+  }
+
+  onTick(0);
+}
+
+async function useTimeOut() {
+  if (!itemController.isAvailable("time-out")) {
+    throw new Error(
+      "Temps mort n’est pas disponible."
+    );
+  }
+
+  if (video.paused || video.ended) {
+    throw new Error(
+      "La vidéo doit être en cours de lecture."
+    );
+  }
+
+  itemController.activate("time-out");
+  itemController.consumeCharge("time-out");
+
+  renderActiveItems();
+
+  video.pause();
+
+  await runCountdown(
+    30,
+    (remainingSeconds) => {
+      activeItemStatus.textContent =
+        remainingSeconds > 0
+          ? `Temps mort actif : reprise dans ${remainingSeconds} seconde${remainingSeconds > 1 ? "s" : ""}.`
+          : "Reprise de la vidéo...";
+    }
+  );
+
+  itemController.finishActivation("time-out");
+
+  if (
+    gameState.status === GAME_STATUS.ENCOUNTER &&
+    !video.ended
+  ) {
+    await video.play();
+
+    activeItemStatus.textContent =
+      "Temps mort utilisé. Recharge au prochain round.";
+  }
+
+  renderActiveItems();
+}
+
+function renderMap() {
+  showMapScreen();
+  mapNodeList.replaceChildren();
+
+  goldValue.textContent =
+    String(gameState.gold);
+
+  if (gameState.inventory.length === 0) {
+    inventoryValue.textContent =
+      "Aucun";
+  } else {
+    const itemNames =
+      gameState.inventory.map((itemId) => {
+        const item =
+          getItemById(itemId);
+
+        return item?.name ?? itemId;
+      });
+
+    inventoryValue.textContent =
+      itemNames.join(", ");
+  }
+
+  const currentNode =
+    mapController.getCurrentNode();
+
+  const accessibleNodes =
+    mapController.getAccessibleNodes();
+
+  if (currentNode === null) {
+    const message = document.createElement("p");
+    message.textContent =
+      "La case actuelle est introuvable.";
+
+    mapNodeList.append(message);
+    return;
+  }
+
+  const currentNodeText =
+    document.createElement("p");
+
+  currentNodeText.textContent =
+    `Position actuelle : ${currentNode.title}`;
+
+  mapNodeList.append(currentNodeText);
+
+  for (const node of accessibleNodes) {
+    const button =
+      document.createElement("button");
+
+    button.type = "button";
+    button.className = "map-node-button";
+    button.dataset.nodeId = node.id;
+    button.textContent = node.title;
+
+    button.addEventListener("click", () => {
+      void handleNodeSelection(node.id);
+    });
+
+    mapNodeList.append(button);
+  }
+}
+
+function showMapScreen() {
+  mapScreen.hidden = false;
+  eventScreen.hidden = true;
+  rewardScreen.hidden = true;
+}
+
+function showEventScreen() {
+  mapScreen.hidden = true;
+  eventScreen.hidden = false;
+  rewardScreen.hidden = true;
+}
+
+function showRewardScreen() {
+  mapScreen.hidden = true;
+  eventScreen.hidden = true;
+  rewardScreen.hidden = false;
+}
+
+async function handleNodeSelection(nodeId) {
+  if (gameState.status !== GAME_STATUS.MAP) {
+    console.warn(
+      "Une case ne peut être sélectionnée que depuis la carte."
+    );
+
+    return;
+  }
+  try {
+    const selectedNode =
+      mapController.moveToNode(nodeId);
+
+    console.log(
+      "Case sélectionnée :",
+      selectedNode
+    );
+
+    if (
+      selectedNode.type === "normal" ||
+      selectedNode.type === "elite" ||
+      selectedNode.type === "boss"
+    ) {
+      if (!selectedNode.encounterId) {
+        throw new Error(
+          `Aucune rencontre associée à la case ${selectedNode.id}.`
+        );
+      }
+
+      gameState.setCurrentEncounter({
+        nodeId: selectedNode.id,
+        encounterId: selectedNode.encounterId,
+        type: selectedNode.type
+      });
+
+      gameState.setStatus(
+        GAME_STATUS.ENCOUNTER
+      );
+
+      console.log(
+        "Chargement de la rencontre :",
+        selectedNode.encounterId
+      );
+
+      await loadEncounter(
+        selectedNode.encounterId
+      );
+
+      console.log("Rencontre chargée avec succès.");
+
+      statusText.textContent =
+        `Rencontre : ${selectedNode.title}`;
+
+      console.log(
+        "État après sélection :",
+        gameState
+      );
+
+      console.log(
+        "Vidéo chargée :",
+        video.src
+      );
+
+      console.log(
+        "Funscript courant :",
+        funscriptView.funscriptPath
+      );
+
+      return;
+    }
+
+    if (selectedNode.type === "event") {
+      if (!selectedNode.eventId) {
+        throw new Error(
+          `Aucun événement associé à la case ${selectedNode.id}.`
+        );
+      }
+
+      gameState.setStatus(
+        GAME_STATUS.EVENT
+      );
+
+      renderEvent(
+        selectedNode.eventId
+      );
+
+      return;
+    }
+
+    gameState.setStatus(
+      GAME_STATUS.MAP
+    );
+
+    renderMap();
+    console.log(
+      "État après sélection :",
+      gameState
+    );
+  } catch (error) {
+    console.error(
+      "Impossible de sélectionner la case :",
+      error
+    );
+
+    statusText.textContent =
+      "Impossible d’ouvrir cette case.";
+  }
+}
+
+function renderEvent(eventId) {
+  const event = getEventById(eventId);
+
+  if (event === null) {
+    throw new Error(
+      `Événement introuvable : ${eventId}`
+    );
+  }
+
+  showEventScreen();
+
+  eventTitle.textContent =
+    event.title;
+
+  eventDescription.textContent =
+    event.description;
+
+  eventChoiceList.replaceChildren();
+
+  for (const choice of event.choices) {
+    const button =
+      document.createElement("button");
+
+    button.type = "button";
+    button.className =
+      "event-choice-button";
+
+    button.textContent =
+      choice.label;
+
+    button.addEventListener("click", () => {
+      void resolveEventChoice(
+        event,
+        choice
+      );
+    });
+
+    eventChoiceList.append(button);
+  }
+}
+
+function renderEliteReward(encounter) {
+  showRewardScreen();
+
+  rewardChoiceList.replaceChildren();
+
+  const goldButton =
+    document.createElement("button");
+
+  goldButton.type = "button";
+  goldButton.className =
+    "reward-choice-button";
+
+  goldButton.textContent =
+    `${encounter.rewardGold} or`;
+
+  goldButton.addEventListener("click", () => {
+    resolveEliteReward({
+      type: "gold",
+      amount: encounter.rewardGold
+    });
+  });
+
+  const randomItem =
+    getRandomAvailableItem(
+      gameState.inventory
+    );
+
+  rewardChoiceList.append(goldButton);
+
+  if (randomItem !== null) {
+    const itemButton =
+      document.createElement("button");
+
+    itemButton.type = "button";
+    itemButton.className =
+      "reward-choice-button";
+
+    itemButton.textContent =
+      randomItem.name;
+
+    itemButton.title =
+      randomItem.description;
+
+    itemButton.addEventListener(
+      "click",
+      () => {
+        resolveEliteReward({
+          type: "item",
+          itemId: randomItem.id
+        });
+      }
+    );
+
+    rewardChoiceList.append(
+      itemButton
+    );
+  }
+}
+
+function resolveEliteReward(reward) {
+  for (
+    const button of
+    rewardChoiceList.querySelectorAll("button")
+  ) {
+    button.disabled = true;
+  }
+
+  if (reward.type === "gold") {
+    gameState.addGold(reward.amount);
+
+    statusText.textContent =
+      `Récompense d’élite : +${reward.amount} or`;
+  } else if (reward.type === "item") {
+    const item =
+      getItemById(reward.itemId);
+
+    if (item === null) {
+      throw new Error(
+        `Objet introuvable : ${reward.itemId}`
+      );
+    }
+
+    const itemAdded =
+      gameState.addItem(item.id);
+
+    if (!itemAdded) {
+      throw new Error(
+        `L’objet ${item.name} est déjà possédé.`
+      );
+    }
+
+    statusText.textContent =
+      `${item.name} ajouté à l’inventaire.`;
+  } else {
+    throw new Error(
+      `Type de récompense inconnu : ${reward.type}`
+    );
+  }
+
+  gameState.setCurrentEncounter(null);
+  gameState.setStatus(
+    GAME_STATUS.MAP
+  );
+
+  renderMap();
+
+  console.log(
+    "Récompense d’élite choisie :",
+    {
+      reward,
+      gameState
+    }
+  );
+}
+
+async function resolveEventChoice(
+  event,
+  choice
+) {
+  try {
+    for (
+      const button of
+      eventChoiceList.querySelectorAll("button")
+    ) {
+      button.disabled = true;
+    }
+
+    switch (choice.effect.type) {
+      case "gain-gold":
+        gameState.addGold(
+          choice.effect.amount
+        );
+
+        statusText.textContent =
+          `Événement terminé : +${choice.effect.amount} or`;
+        break;
+
+      case "none":
+        statusText.textContent =
+          "Événement terminé sans conséquence.";
+        break;
+
+      default:
+        throw new Error(
+          `Effet inconnu : ${choice.effect.type}`
+        );
+    }
+
+    gameState.completeCurrentNode();
+    gameState.setStatus(
+      GAME_STATUS.MAP
+    );
+
+    renderMap();
+
+    console.log(
+      "Événement résolu :",
+      {
+        eventId: event.id,
+        choiceId: choice.id,
+        gameState
+      }
+    );
+  } catch (error) {
+    console.error(
+      "Impossible de résoudre l’événement :",
+      error
+    );
+
+    statusText.textContent =
+      "Erreur pendant l’événement.";
+
+    for (
+      const button of
+      eventChoiceList.querySelectorAll("button")
+    ) {
+      button.disabled = false;
+    }
+  }
+}
+
 funscriptView = new FunscriptViewController({
   video,
-  funscriptPath: APP_CONFIG.funscriptPath,
+  funscriptPath: "../assets/funscripts/test-video.funscript",
 
   onActionsChange(actions) {
     funscriptActions = actions;
@@ -358,8 +1215,8 @@ deviceControls = new DeviceControlsController({
   formatError
 });
 
-void funscriptView.load().catch(() => {
-  updateDeviceControlButtons();
-});
-
+gameState.startRun();
+gameState.addItem("time-out");
+renderMap();
+renderActiveItems();
 updateDeviceControlButtons();

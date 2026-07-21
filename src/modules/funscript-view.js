@@ -56,6 +56,19 @@ export class FunscriptViewController {
     this.validateElements();
   }
 
+  setFunscriptPath(funscriptPath) {
+    if (
+      typeof funscriptPath !== "string" ||
+      funscriptPath.trim().length === 0
+    ) {
+      throw new TypeError(
+        "Le chemin du funscript est invalide."
+      );
+    }
+
+    this.funscriptPath = funscriptPath;
+  }
+
   validateElements() {
     if (
       !(this.devicePositionElement instanceof HTMLDivElement)

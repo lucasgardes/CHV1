@@ -1,7 +1,6 @@
 "use strict";
 
 export const APP_CONFIG = Object.freeze({
-  funscriptPath: "../assets/funscripts/test-video.funscript",
   intifaceClientName: "CHV1",
   intifaceVerbose: true
 });

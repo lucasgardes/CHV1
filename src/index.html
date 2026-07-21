@@ -29,13 +29,56 @@
     <main class="screen">
       <h1>Test vidéo</h1>
 
+      <section id="map-screen" class="map-screen">
+        <h2>Carte</h2>
+
+        <p>
+          Or :
+          <strong id="gold-value">50</strong>
+        </p>
+
+        <p>
+          Objets :
+          <strong id="inventory-value">
+            Aucun
+          </strong>
+        </p>
+
+        <div id="map-node-list" class="map-node-list"></div>
+      </section>
+
+      <section
+        id="event-screen"
+        class="event-screen"
+        hidden
+      >
+        <h2 id="event-title">Événement mystère</h2>
+
+        <p id="event-description"></p>
+
+        <div
+          id="event-choice-list"
+          class="event-choice-list"
+        ></div>
+      </section>
+
+      <section
+        id="reward-screen"
+        class="reward-screen"
+        hidden
+      >
+        <h2>Récompense d’élite</h2>
+
+        <p>Choisis une récompense :</p>
+
+        <div
+          id="reward-choice-list"
+          class="reward-choice-list"
+        ></div>
+      </section>
+
       <section class="video-container">
         <video id="round-video" preload="metadata">
-          <source
-            src="../assets/videos/test-video.mp4"
-            type="video/mp4"
-          />
-
           Ton ordinateur ne peut pas lire cette vidéo.
         </video>
       </section>
@@ -171,6 +214,19 @@
           /
           <span id="duration">00:00</span>
         </p>
+      </section>
+
+      <section class="active-items-panel">
+        <h3>Objets utilisables</h3>
+
+        <p id="active-item-status">
+          Aucun objet utilisable.
+        </p>
+
+        <div
+          id="active-item-list"
+          class="active-item-list"
+        ></div>
       </section>
 
       <section class="controls">
