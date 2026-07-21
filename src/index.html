@@ -1,0 +1,195 @@
+<!doctype html>
+<html lang="fr">
+  <head>
+    <meta charset="UTF-8" />
+
+    <meta
+      http-equiv="Content-Security-Policy"
+      content="
+        default-src 'self';
+        media-src 'self';
+        script-src 'self';
+        style-src 'self';
+        connect-src 'self' ws://127.0.0.1:12345 ws://localhost:12345
+      "
+    />
+
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1.0"
+    />
+
+    <title>CHV1 — Test vidéo</title>
+
+    <link rel="stylesheet" href="./style.css" />
+    <script src="./renderer.bundle.js" defer></script>
+  </head>
+
+  <body>
+    <main class="screen">
+      <h1>Test vidéo</h1>
+
+      <section class="video-container">
+        <video id="round-video" preload="metadata">
+          <source
+            src="../assets/videos/test-video.mp4"
+            type="video/mp4"
+          />
+
+          Ton ordinateur ne peut pas lire cette vidéo.
+        </video>
+      </section>
+
+      <section class="funscript-panel">
+        <div class="device-simulator">
+          <div id="device-position" class="device-position"></div>
+        </div>
+
+        <div class="funscript-information">
+          <h2>Simulateur funscript</h2>
+
+          <p>
+            État :
+            <strong id="funscript-status">Chargement...</strong>
+          </p>
+
+          <p>
+            Position :
+            <strong id="position-value">0</strong>
+            %
+          </p>
+
+          <p>
+            Action :
+            <strong id="action-index">0 / 0</strong>
+          </p>
+        </div>
+      </section>
+
+      <section class="intiface-panel">
+        <div class="intiface-header">
+          <div>
+            <h2>Intiface Central</h2>
+
+            <p>
+              Serveur :
+              <strong id="intiface-status">Déconnecté</strong>
+            </p>
+          </div>
+
+          <div class="connection-indicator" id="connection-indicator"></div>
+        </div>
+
+        <label class="address-field">
+          Adresse du serveur
+
+          <input
+            id="server-address"
+            type="text"
+            value="ws://127.0.0.1:12345"
+            spellcheck="false"
+          />
+        </label>
+
+        <div class="intiface-controls">
+          <button id="connect-button" type="button">
+            Se connecter
+          </button>
+
+          <button id="scan-button" type="button" disabled>
+            Rechercher les appareils
+          </button>
+
+          <button id="stop-scan-button" type="button" disabled>
+            Arrêter la recherche
+          </button>
+
+          <button id="disconnect-button" type="button" disabled>
+            Se déconnecter
+          </button>
+        </div>
+
+        <div class="device-section">
+          <h3>Appareils détectés</h3>
+
+          <p id="scan-status">
+            Connecte d’abord CHV1 à Intiface Central.
+          </p>
+
+          <ul id="device-list" class="device-list">
+            <li class="empty-device-message">
+              Aucun appareil
+            </li>
+          </ul>
+        </div>
+      </section>
+
+      <section class="manual-device-controls">
+        <h3>Test manuel</h3>
+
+        <p id="device-control-status">
+          Aucun appareil sélectionné.
+        </p>
+
+        <div class="device-control-buttons">
+          <button id="low-position-button" type="button" disabled>
+            Position basse
+          </button>
+
+          <button id="middle-position-button" type="button" disabled>
+            Position centrale
+          </button>
+
+          <button id="high-position-button" type="button" disabled>
+            Position haute
+          </button>
+
+          <button id="test-funscript-button" type="button" disabled>
+            Tester le funscript
+          </button>
+
+          <button id="stop-funscript-button" type="button" disabled>
+            Arrêter le funscript
+          </button>
+
+          <button
+            id="emergency-stop-button"
+            class="emergency-button"
+            type="button"
+            disabled
+          >
+            ARRÊT
+          </button>
+        </div>
+      </section>
+
+      <section class="video-information">
+        <p id="video-status">Prêt</p>
+
+        <p>
+          <span id="current-time">00:00</span>
+          /
+          <span id="duration">00:00</span>
+        </p>
+      </section>
+
+      <section class="controls">
+        <button id="backward-button" type="button">
+          −5 secondes
+        </button>
+
+        <button id="play-button" type="button">
+          Lecture
+        </button>
+
+        <button id="forward-button" type="button">
+          +5 secondes
+        </button>
+
+        <button id="restart-button" type="button">
+          Recommencer
+        </button>
+      </section>
+    </main>
+  </body>
+</html>

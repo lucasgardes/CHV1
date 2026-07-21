@@ -1,0 +1,21 @@
+{
+  "name": "chv1",
+  "version": "1.0.0",
+  "description": "Prototype de jeu vidéo interactif basé sur des rounds vidéo.",
+  "main": "main.js",
+  "scripts": {
+    "build:renderer": "esbuild src/renderer.js --bundle --platform=browser --format=iife --outfile=src/renderer.bundle.js",
+    "build": "npm run build:renderer",
+    "start": "npm run build && electron ."
+  },
+  "author": "",
+  "license": "ISC",
+  "devDependencies": {
+    "electron": "^43.1.1",
+    "esbuild": "^0.28.1"
+  },
+  "dependencies": {
+    "@zendrex/buttplug.js": "^0.5.0"
+  },
+  "private": true
+}
