@@ -26,226 +26,383 @@
   </head>
 
   <body>
-    <main class="screen">
-      <h1>Test vidéo</h1>
+    <main class="app-shell">
+      <header class="app-header">
+        <div>
+          <p class="app-eyebrow">CHV1</p>
+          <h1>Video Ascension</h1>
+        </div>
 
-      <section id="map-screen" class="map-screen">
-        <h2>Carte</h2>
+        <div class="header-status">
+          <span
+            id="connection-indicator"
+            class="connection-indicator"
+          ></span>
 
-        <p>
-          Or :
-          <strong id="gold-value">50</strong>
-        </p>
+          <span id="intiface-status">
+            Déconnecté
+          </span>
 
-        <p>
-          Objets :
-          <strong id="inventory-value">
-            Aucun
-          </strong>
-        </p>
+          <button
+            id="open-settings-button"
+            class="secondary-button"
+            type="button"
+          >
+            Connexion
+          </button>
+        </div>
+      </header>
 
-        <div id="map-node-list" class="map-node-list"></div>
+      <section
+        id="map-screen"
+        class="game-screen"
+      >
+        <header class="screen-header">
+          <div>
+            <p class="screen-kicker">
+              Progression
+            </p>
+
+            <h2>Carte</h2>
+          </div>
+
+          <div class="run-resources">
+            <div class="resource-card">
+              <span>Or</span>
+              <strong id="gold-value">50</strong>
+            </div>
+
+            <div class="resource-card inventory-card">
+              <span>Objets</span>
+              <strong id="inventory-value">
+                Aucun
+              </strong>
+            </div>
+          </div>
+        </header>
+
+        <div
+          id="map-node-list"
+          class="map-node-list"
+        ></div>
       </section>
 
       <section
         id="event-screen"
-        class="event-screen"
+        class="game-screen centered-screen"
         hidden
       >
-        <h2 id="event-title">Événement mystère</h2>
+        <p class="screen-kicker">
+          Rencontre inconnue
+        </p>
 
-        <p id="event-description"></p>
+        <h2 id="event-title">
+          Événement mystère
+        </h2>
+
+        <p
+          id="event-description"
+          class="screen-description"
+        ></p>
 
         <div
           id="event-choice-list"
-          class="event-choice-list"
+          class="choice-list"
         ></div>
       </section>
 
       <section
         id="reward-screen"
-        class="reward-screen"
+        class="game-screen centered-screen"
         hidden
       >
+        <p class="screen-kicker">
+          Victoire
+        </p>
+
         <h2>Récompense d’élite</h2>
 
-        <p>Choisis une récompense :</p>
+        <p class="screen-description">
+          Choisis une récompense.
+        </p>
 
         <div
           id="reward-choice-list"
-          class="reward-choice-list"
+          class="choice-list"
         ></div>
       </section>
 
-      <section class="video-container">
-        <video id="round-video" preload="metadata">
-          Ton ordinateur ne peut pas lire cette vidéo.
-        </video>
-      </section>
-
-      <section class="funscript-panel">
-        <div class="device-simulator">
-          <div id="device-position" class="device-position"></div>
-        </div>
-
-        <div class="funscript-information">
-          <h2>Simulateur funscript</h2>
-
-          <p>
-            État :
-            <strong id="funscript-status">Chargement...</strong>
-          </p>
-
-          <p>
-            Position :
-            <strong id="position-value">0</strong>
-            %
-          </p>
-
-          <p>
-            Action :
-            <strong id="action-index">0 / 0</strong>
-          </p>
-        </div>
-      </section>
-
-      <section class="intiface-panel">
-        <div class="intiface-header">
+      <section
+        id="encounter-screen"
+        class="game-screen encounter-screen"
+        hidden
+      >
+        <header class="encounter-header">
           <div>
-            <h2>Intiface Central</h2>
+            <p class="screen-kicker">
+              Rencontre en cours
+            </p>
+
+            <h2 id="encounter-title">
+              Rencontre
+            </h2>
+          </div>
+
+          <div class="video-information">
+            <p id="video-status">Prêt</p>
 
             <p>
-              Serveur :
-              <strong id="intiface-status">Déconnecté</strong>
+              <span id="current-time">00:00</span>
+              /
+              <span id="duration">00:00</span>
+            </p>
+          </div>
+        </header>
+
+        <div class="video-container">
+          <video
+            id="round-video"
+            preload="metadata"
+          >
+            Ton ordinateur ne peut pas lire cette vidéo.
+          </video>
+        </div>
+
+        <section class="active-items-panel">
+          <div>
+            <h3>Objets utilisables</h3>
+
+            <p id="active-item-status">
+              Aucun objet utilisable.
             </p>
           </div>
 
-          <div class="connection-indicator" id="connection-indicator"></div>
-        </div>
+          <div
+            id="active-item-list"
+            class="active-item-list"
+          ></div>
+        </section>
 
-        <label class="address-field">
-          Adresse du serveur
-
-          <input
-            id="server-address"
-            type="text"
-            value="ws://127.0.0.1:12345"
-            spellcheck="false"
-          />
-        </label>
-
-        <div class="intiface-controls">
-          <button id="connect-button" type="button">
-            Se connecter
-          </button>
-
-          <button id="scan-button" type="button" disabled>
-            Rechercher les appareils
-          </button>
-
-          <button id="stop-scan-button" type="button" disabled>
-            Arrêter la recherche
-          </button>
-
-          <button id="disconnect-button" type="button" disabled>
-            Se déconnecter
-          </button>
-        </div>
-
-        <div class="device-section">
-          <h3>Appareils détectés</h3>
-
-          <p id="scan-status">
-            Connecte d’abord CHV1 à Intiface Central.
-          </p>
-
-          <ul id="device-list" class="device-list">
-            <li class="empty-device-message">
-              Aucun appareil
-            </li>
-          </ul>
-        </div>
-      </section>
-
-      <section class="manual-device-controls">
-        <h3>Test manuel</h3>
-
-        <p id="device-control-status">
-          Aucun appareil sélectionné.
-        </p>
-
-        <div class="device-control-buttons">
-          <button id="low-position-button" type="button" disabled>
-            Position basse
-          </button>
-
-          <button id="middle-position-button" type="button" disabled>
-            Position centrale
-          </button>
-
-          <button id="high-position-button" type="button" disabled>
-            Position haute
-          </button>
-
-          <button id="test-funscript-button" type="button" disabled>
-            Tester le funscript
-          </button>
-
-          <button id="stop-funscript-button" type="button" disabled>
-            Arrêter le funscript
+        <div class="controls">
+          <button
+            id="backward-button"
+            class="secondary-button"
+            type="button"
+          >
+            −5 secondes
           </button>
 
           <button
-            id="emergency-stop-button"
-            class="emergency-button"
+            id="play-button"
+            class="primary-button"
             type="button"
-            disabled
           >
-            ARRÊT
+            Lecture
+          </button>
+
+          <button
+            id="forward-button"
+            class="secondary-button"
+            type="button"
+          >
+            +5 secondes
+          </button>
+
+          <button
+            id="restart-button"
+            class="secondary-button"
+            type="button"
+          >
+            Recommencer
           </button>
         </div>
       </section>
 
-      <section class="video-information">
-        <p id="video-status">Prêt</p>
+      <aside
+        id="settings-panel"
+        class="settings-panel"
+        hidden
+      >
+        <div class="settings-dialog">
+          <header class="settings-header">
+            <div>
+              <p class="screen-kicker">
+                Configuration
+              </p>
 
-        <p>
-          <span id="current-time">00:00</span>
-          /
-          <span id="duration">00:00</span>
-        </p>
-      </section>
+              <h2>Intiface Central</h2>
+            </div>
 
-      <section class="active-items-panel">
-        <h3>Objets utilisables</h3>
+            <button
+              id="close-settings-button"
+              class="icon-button"
+              type="button"
+              aria-label="Fermer"
+            >
+              ×
+            </button>
+          </header>
 
-        <p id="active-item-status">
-          Aucun objet utilisable.
-        </p>
+          <label class="address-field">
+            Adresse du serveur
 
-        <div
-          id="active-item-list"
-          class="active-item-list"
-        ></div>
-      </section>
+            <input
+              id="server-address"
+              type="text"
+              value="ws://127.0.0.1:12345"
+              spellcheck="false"
+            />
+          </label>
 
-      <section class="controls">
-        <button id="backward-button" type="button">
-          −5 secondes
-        </button>
+          <div class="intiface-controls">
+            <button
+              id="connect-button"
+              type="button"
+            >
+              Se connecter
+            </button>
 
-        <button id="play-button" type="button">
-          Lecture
-        </button>
+            <button
+              id="scan-button"
+              type="button"
+              disabled
+            >
+              Rechercher les appareils
+            </button>
 
-        <button id="forward-button" type="button">
-          +5 secondes
-        </button>
+            <button
+              id="stop-scan-button"
+              type="button"
+              disabled
+            >
+              Arrêter la recherche
+            </button>
 
-        <button id="restart-button" type="button">
-          Recommencer
-        </button>
-      </section>
+            <button
+              id="disconnect-button"
+              type="button"
+              disabled
+            >
+              Se déconnecter
+            </button>
+          </div>
+
+          <section class="device-section">
+            <h3>Appareils détectés</h3>
+
+            <p id="scan-status">
+              Connecte d’abord CHV1 à Intiface Central.
+            </p>
+
+            <ul
+              id="device-list"
+              class="device-list"
+            >
+              <li class="empty-device-message">
+                Aucun appareil
+              </li>
+            </ul>
+          </section>
+
+          <details class="developer-tools">
+            <summary>
+              Outils développeur
+            </summary>
+
+            <section class="funscript-panel">
+              <div class="device-simulator">
+                <div
+                  id="device-position"
+                  class="device-position"
+                ></div>
+              </div>
+
+              <div class="funscript-information">
+                <h3>Simulateur funscript</h3>
+
+                <p>
+                  État :
+                  <strong id="funscript-status">
+                    Chargement...
+                  </strong>
+                </p>
+
+                <p>
+                  Position :
+                  <strong id="position-value">0</strong>
+                  %
+                </p>
+
+                <p>
+                  Action :
+                  <strong id="action-index">
+                    0 / 0
+                  </strong>
+                </p>
+              </div>
+            </section>
+
+            <section class="manual-device-controls">
+              <h3>Test manuel</h3>
+
+              <p id="device-control-status">
+                Aucun appareil sélectionné.
+              </p>
+
+              <div class="device-control-buttons">
+                <button
+                  id="low-position-button"
+                  type="button"
+                  disabled
+                >
+                  Position basse
+                </button>
+
+                <button
+                  id="middle-position-button"
+                  type="button"
+                  disabled
+                >
+                  Position centrale
+                </button>
+
+                <button
+                  id="high-position-button"
+                  type="button"
+                  disabled
+                >
+                  Position haute
+                </button>
+
+                <button
+                  id="test-funscript-button"
+                  type="button"
+                  disabled
+                >
+                  Tester le funscript
+                </button>
+
+                <button
+                  id="stop-funscript-button"
+                  type="button"
+                  disabled
+                >
+                  Arrêter le funscript
+                </button>
+
+                <button
+                  id="emergency-stop-button"
+                  class="emergency-button"
+                  type="button"
+                  disabled
+                >
+                  ARRÊT
+                </button>
+              </div>
+            </section>
+          </details>
+        </div>
+      </aside>
     </main>
   </body>
 </html>

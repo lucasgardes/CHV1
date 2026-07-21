@@ -68,6 +68,26 @@ import {
   VIDEO_CONFIG
 } from "./modules/config.js";
 
+import {
+  ScreenController
+} from "./ui/screen-controller.js";
+
+import {
+  MapView
+} from "./ui/map-view.js";
+
+import {
+  EventView
+} from "./ui/event-view.js";
+
+import {
+  RewardView
+} from "./ui/reward-view.js";
+
+import {
+  ActiveItemsView
+} from "./ui/active-items-view.js";
+
 const video = document.querySelector("#round-video");
 
 const playButton = document.querySelector("#play-button");
@@ -154,6 +174,21 @@ const activeItemStatus =
 
 const activeItemList =
   document.querySelector("#active-item-list");
+
+const encounterScreen =
+  document.querySelector("#encounter-screen");
+
+const encounterTitle =
+  document.querySelector("#encounter-title");
+
+const settingsPanel =
+  document.querySelector("#settings-panel");
+
+const openSettingsButton =
+  document.querySelector("#open-settings-button");
+
+const closeSettingsButton =
+  document.querySelector("#close-settings-button");
 
 if (!(deviceControlStatus instanceof HTMLElement)) {
   throw new Error(
@@ -260,6 +295,100 @@ if (!(activeItemList instanceof HTMLDivElement)) {
     "La liste des objets utilisables est introuvable."
   );
 }
+
+if (!(encounterScreen instanceof HTMLElement)) {
+  throw new Error(
+    "L’écran de rencontre est introuvable."
+  );
+}
+
+if (!(encounterTitle instanceof HTMLElement)) {
+  throw new Error(
+    "Le titre de la rencontre est introuvable."
+  );
+}
+
+if (!(settingsPanel instanceof HTMLElement)) {
+  throw new Error(
+    "Le panneau de connexion est introuvable."
+  );
+}
+
+if (
+  !(openSettingsButton instanceof HTMLButtonElement)
+) {
+  throw new Error(
+    "Le bouton d’ouverture des paramètres est introuvable."
+  );
+}
+
+if (
+  !(closeSettingsButton instanceof HTMLButtonElement)
+) {
+  throw new Error(
+    "Le bouton de fermeture des paramètres est introuvable."
+  );
+}
+
+const screenController =
+  new ScreenController({
+    mapScreen,
+    encounterScreen,
+    eventScreen,
+    rewardScreen,
+    settingsPanel
+  });
+
+const mapView = new MapView({
+  mapNodeList,
+  goldValue,
+  inventoryValue,
+  getItemById,
+
+  onNodeSelected(nodeId) {
+    void handleNodeSelection(nodeId);
+  }
+});
+
+const eventView = new EventView({
+  eventTitle,
+  eventDescription,
+  eventChoiceList,
+
+  onChoiceSelected(event, choice) {
+    void resolveEventChoice(
+      event,
+      choice
+    );
+  }
+});
+
+const rewardView = new RewardView({
+  rewardChoiceList,
+
+  onRewardSelected(reward) {
+    try {
+      resolveEliteReward(reward);
+    } catch (error) {
+      console.error(
+        "Impossible de choisir la récompense :",
+        error
+      );
+
+      rewardView.enableChoices();
+    }
+  }
+});
+
+const activeItemsView =
+  new ActiveItemsView({
+    activeItemStatus,
+    activeItemList,
+
+    onItemSelected(itemId) {
+      void useActiveItem(itemId);
+    }
+  });
 
 let selectedDevice = null;
 let videoFunscriptSyncRunning = false;
@@ -557,62 +686,69 @@ async function completeCurrentEncounter() {
 }
 
 function renderActiveItems() {
-  activeItemList.replaceChildren();
-
   if (gameState.status !== GAME_STATUS.ENCOUNTER) {
-    activeItemStatus.textContent =
-      "Les objets sont utilisables pendant une rencontre.";
+    activeItemsView.render({
+      status:
+        "Les objets sont utilisables pendant une rencontre.",
+      items: []
+    });
 
     return;
   }
 
-  const usableItems = gameState.inventory
-    .map((itemId) => getItemById(itemId))
-    .filter((item) => {
-      return (
-        item !== null &&
-        item.type === "rechargeable"
-      );
-    });
+  const usableItems =
+    gameState.inventory
+      .map((itemId) => getItemById(itemId))
+      .filter((item) => {
+        return (
+          item !== null &&
+          (
+            item.type === "rechargeable" ||
+            item.type === "consumable"
+          )
+        );
+      });
 
   if (usableItems.length === 0) {
-    activeItemStatus.textContent =
-      "Aucun objet utilisable.";
+    activeItemsView.render({
+      status:
+        "Aucun objet utilisable.",
+      items: []
+    });
 
     return;
   }
 
-  activeItemStatus.textContent =
-    "Choisis un objet à utiliser.";
+  const renderedItems =
+    usableItems.map((item) => {
+      if (item.id === "time-out") {
+        return {
+          id: item.id,
+          name: item.name,
+          disabled:
+            !itemController.isAvailable(
+              item.id
+            ) ||
+            video.paused ||
+            video.ended
+        };
+      }
 
-  for (const item of usableItems) {
-    const button =
-      document.createElement("button");
-
-    button.type = "button";
-    button.className =
-      "active-item-button";
-
-    button.textContent =
-      item.name;
-
-    if (item.id === "time-out") {
-      button.disabled =
-        !itemController.isAvailable("time-out") ||
-        video.paused ||
-        video.ended;
-    } else {
-      button.disabled = true;
-      button.title =
-        "Cet objet n’est pas encore implémenté.";
-    }
-
-    button.addEventListener("click", () => {
-      void useActiveItem(item.id);
+      return {
+        id: item.id,
+        name: item.name,
+        disabled: true,
+        title:
+          "Cet objet n’est pas encore implémenté."
+      };
     });
 
-    activeItemList.append(button);
-  }
+  activeItemsView.render({
+    status:
+      "Choisis un objet à utiliser.",
+    items:
+      renderedItems
+  });
 }
 
 async function useActiveItem(itemId) {
@@ -645,8 +781,9 @@ async function useActiveItem(itemId) {
       error
     );
 
-    activeItemStatus.textContent =
-      "Impossible d’utiliser cet objet.";
+    activeItemsView.setStatus(
+      "Impossible d’utiliser cet objet."
+    );
   }
 }
 
@@ -699,10 +836,11 @@ async function useTimeOut() {
   await runCountdown(
     30,
     (remainingSeconds) => {
-      activeItemStatus.textContent =
+      activeItemsView.setStatus(
         remainingSeconds > 0
           ? `Temps mort actif : reprise dans ${remainingSeconds} seconde${remainingSeconds > 1 ? "s" : ""}.`
-          : "Reprise de la vidéo...";
+          : "Reprise de la vidéo..."
+      );
     }
   );
 
@@ -714,92 +852,24 @@ async function useTimeOut() {
   ) {
     await video.play();
 
-    activeItemStatus.textContent =
-      "Temps mort utilisé. Recharge au prochain round.";
+    activeItemsView.setStatus(
+      "Temps mort utilisé. Recharge au prochain round."
+    );
   }
 
   renderActiveItems();
 }
 
 function renderMap() {
-  showMapScreen();
-  mapNodeList.replaceChildren();
+  screenController.showMap();
 
-  goldValue.textContent =
-    String(gameState.gold);
-
-  if (gameState.inventory.length === 0) {
-    inventoryValue.textContent =
-      "Aucun";
-  } else {
-    const itemNames =
-      gameState.inventory.map((itemId) => {
-        const item =
-          getItemById(itemId);
-
-        return item?.name ?? itemId;
-      });
-
-    inventoryValue.textContent =
-      itemNames.join(", ");
-  }
-
-  const currentNode =
-    mapController.getCurrentNode();
-
-  const accessibleNodes =
-    mapController.getAccessibleNodes();
-
-  if (currentNode === null) {
-    const message = document.createElement("p");
-    message.textContent =
-      "La case actuelle est introuvable.";
-
-    mapNodeList.append(message);
-    return;
-  }
-
-  const currentNodeText =
-    document.createElement("p");
-
-  currentNodeText.textContent =
-    `Position actuelle : ${currentNode.title}`;
-
-  mapNodeList.append(currentNodeText);
-
-  for (const node of accessibleNodes) {
-    const button =
-      document.createElement("button");
-
-    button.type = "button";
-    button.className = "map-node-button";
-    button.dataset.nodeId = node.id;
-    button.textContent = node.title;
-
-    button.addEventListener("click", () => {
-      void handleNodeSelection(node.id);
-    });
-
-    mapNodeList.append(button);
-  }
-}
-
-function showMapScreen() {
-  mapScreen.hidden = false;
-  eventScreen.hidden = true;
-  rewardScreen.hidden = true;
-}
-
-function showEventScreen() {
-  mapScreen.hidden = true;
-  eventScreen.hidden = false;
-  rewardScreen.hidden = true;
-}
-
-function showRewardScreen() {
-  mapScreen.hidden = true;
-  eventScreen.hidden = true;
-  rewardScreen.hidden = false;
+  mapView.render({
+    gameState,
+    currentNode:
+      mapController.getCurrentNode(),
+    accessibleNodes:
+      mapController.getAccessibleNodes()
+  });
 }
 
 async function handleNodeSelection(nodeId) {
@@ -844,6 +914,11 @@ async function handleNodeSelection(nodeId) {
         "Chargement de la rencontre :",
         selectedNode.encounterId
       );
+
+      encounterTitle.textContent =
+        selectedNode.title;
+
+      screenController.showEncounter();
 
       await loadEncounter(
         selectedNode.encounterId
@@ -919,105 +994,27 @@ function renderEvent(eventId) {
     );
   }
 
-  showEventScreen();
-
-  eventTitle.textContent =
-    event.title;
-
-  eventDescription.textContent =
-    event.description;
-
-  eventChoiceList.replaceChildren();
-
-  for (const choice of event.choices) {
-    const button =
-      document.createElement("button");
-
-    button.type = "button";
-    button.className =
-      "event-choice-button";
-
-    button.textContent =
-      choice.label;
-
-    button.addEventListener("click", () => {
-      void resolveEventChoice(
-        event,
-        choice
-      );
-    });
-
-    eventChoiceList.append(button);
-  }
+  screenController.showEvent();
+  eventView.render(event);
 }
 
 function renderEliteReward(encounter) {
-  showRewardScreen();
-
-  rewardChoiceList.replaceChildren();
-
-  const goldButton =
-    document.createElement("button");
-
-  goldButton.type = "button";
-  goldButton.className =
-    "reward-choice-button";
-
-  goldButton.textContent =
-    `${encounter.rewardGold} or`;
-
-  goldButton.addEventListener("click", () => {
-    resolveEliteReward({
-      type: "gold",
-      amount: encounter.rewardGold
-    });
-  });
+  screenController.showReward();
 
   const randomItem =
     getRandomAvailableItem(
       gameState.inventory
     );
 
-  rewardChoiceList.append(goldButton);
-
-  if (randomItem !== null) {
-    const itemButton =
-      document.createElement("button");
-
-    itemButton.type = "button";
-    itemButton.className =
-      "reward-choice-button";
-
-    itemButton.textContent =
-      randomItem.name;
-
-    itemButton.title =
-      randomItem.description;
-
-    itemButton.addEventListener(
-      "click",
-      () => {
-        resolveEliteReward({
-          type: "item",
-          itemId: randomItem.id
-        });
-      }
-    );
-
-    rewardChoiceList.append(
-      itemButton
-    );
-  }
+  rewardView.render({
+    goldAmount:
+      encounter.rewardGold,
+    item:
+      randomItem
+  });
 }
 
 function resolveEliteReward(reward) {
-  for (
-    const button of
-    rewardChoiceList.querySelectorAll("button")
-  ) {
-    button.disabled = true;
-  }
-
   if (reward.type === "gold") {
     gameState.addGold(reward.amount);
 
@@ -1071,13 +1068,6 @@ async function resolveEventChoice(
   choice
 ) {
   try {
-    for (
-      const button of
-      eventChoiceList.querySelectorAll("button")
-    ) {
-      button.disabled = true;
-    }
-
     switch (choice.effect.type) {
       case "gain-gold":
         gameState.addGold(
@@ -1123,14 +1113,32 @@ async function resolveEventChoice(
     statusText.textContent =
       "Erreur pendant l’événement.";
 
-    for (
-      const button of
-      eventChoiceList.querySelectorAll("button")
-    ) {
-      button.disabled = false;
-    }
+    eventView.enableChoices();
   }
 }
+
+openSettingsButton.addEventListener(
+  "click",
+  () => {
+    screenController.openSettings();
+  }
+);
+
+closeSettingsButton.addEventListener(
+  "click",
+  () => {
+    screenController.closeSettings();
+  }
+);
+
+settingsPanel.addEventListener(
+  "click",
+  (event) => {
+    if (event.target === settingsPanel) {
+      screenController.closeSettings();
+    }
+  }
+);
 
 funscriptView = new FunscriptViewController({
   video,
