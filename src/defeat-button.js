@@ -8,6 +8,13 @@ const button = document.getElementById("declare-defeat-button");
 if (button instanceof HTMLButtonElement) {
   button.addEventListener("click", async () => {
     if (button.disabled) return;
+
+    const confirmed = window.confirm(
+      "Confirmer la défaite ?\n\nLa vidéo et le funscript seront arrêtés. Les protections anti-défaite seront ensuite vérifiées ; sans protection, la partie recommencera depuis le début."
+    );
+
+    if (!confirmed) return;
+
     button.disabled = true;
     button.textContent = "Traitement...";
 
