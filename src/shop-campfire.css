@@ -1,0 +1,132 @@
+.room-screen {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+}
+
+.room-screen[hidden] {
+  display: none;
+}
+
+.room-toolbar {
+  width: min(920px, 100%);
+  margin: 22px auto 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.room-gold {
+  margin: 0;
+  padding: 10px 14px;
+  border: 1px solid #59476b;
+  border-radius: 12px;
+  background: #17111f;
+  color: #f2d57e;
+  font-weight: 800;
+}
+
+.room-card-grid {
+  width: min(920px, 100%);
+  margin: 26px auto;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 16px;
+}
+
+.room-item-card {
+  min-height: 250px;
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 12px;
+  border: 1px solid #4b3a5d;
+  border-radius: 16px;
+  background: linear-gradient(150deg, #20172a, #120e18);
+  text-align: left;
+}
+
+.room-item-card h3,
+.room-item-card p {
+  margin: 0;
+}
+
+.room-item-card h3 {
+  color: #f5efff;
+}
+
+.room-item-card p:not(.room-item-type) {
+  flex: 1;
+  color: #c7bccf;
+  line-height: 1.5;
+}
+
+.room-item-type {
+  color: #b795d5;
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.room-actions {
+  width: min(720px, 100%);
+  margin-top: 24px;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 18px;
+}
+
+.room-action-button {
+  min-height: 150px;
+  padding: 24px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 8px;
+}
+
+.room-action-button strong,
+.room-action-button span {
+  display: block;
+}
+
+.room-action-button strong {
+  font-size: 20px;
+}
+
+.room-action-button span {
+  color: #c8bdd1;
+  font-size: 14px;
+  line-height: 1.4;
+}
+
+.room-message,
+.room-empty-message {
+  color: #c8bdd1;
+}
+
+.room-upgrade-list {
+  width: min(920px, 100%);
+  margin-top: 24px;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 16px;
+}
+
+@media (max-width: 900px) {
+  .room-card-grid,
+  .room-upgrade-list {
+    grid-template-columns: 1fr;
+  }
+
+  .room-actions,
+  .room-toolbar {
+    grid-template-columns: 1fr;
+    flex-direction: column;
+  }
+}
