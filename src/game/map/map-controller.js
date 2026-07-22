@@ -4,6 +4,10 @@ import {
   generateMap
 } from "./map-generator.js";
 
+import {
+  registerMapController
+} from "../game-runtime.js";
+
 export class MapController {
   constructor({ gameState, seed } = {}) {
     if (!gameState) {
@@ -12,6 +16,7 @@ export class MapController {
 
     this.gameState = gameState;
     this.setMap(generateMap({ seed }));
+    registerMapController(this);
   }
 
   setMap(map) {
@@ -100,6 +105,13 @@ export class MapController {
     }
 
     this.gameState.moveToNode(targetNode.id);
+
+    if (targetNode.type === "shop" || targetNode.type === "campfire") {
+      window.dispatchEvent(new CustomEvent("chv:room-selected", {
+        detail: { node: targetNode }
+      }));
+    }
+
     return targetNode;
   }
 
