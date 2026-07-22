@@ -4,7 +4,7 @@
   "description": "Prototype de jeu vidéo interactif basé sur des rounds vidéo.",
   "main": "main.js",
   "scripts": {
-    "build:renderer": "esbuild src/renderer.js --bundle --platform=browser --format=iife --outfile=src/renderer.bundle.js",
+    "build:renderer": "esbuild src/app.js --bundle --platform=browser --format=iife --outfile=src/renderer.bundle.js",
     "build": "npm run build:renderer",
     "start": "npm run build && electron ."
   },
