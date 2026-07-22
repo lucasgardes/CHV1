@@ -1,8 +1,8 @@
 "use strict";
 
-import { getItemById } from "../data/items.js";
+import { getItemById, RECHARGE_TYPES } from "../data/items.js";
 
-function wait(milliseconds) {
+function defaultWait(milliseconds) {
   return new Promise((resolve) => window.setTimeout(resolve, milliseconds));
 }
 
@@ -11,6 +11,7 @@ export class ActiveItemController {
     gameState,
     itemController,
     video,
+    wait = defaultWait,
     onStateChange = () => {},
     onStatusChange = () => {}
   }) {
@@ -19,6 +20,7 @@ export class ActiveItemController {
     if (!(video instanceof HTMLVideoElement)) {
       throw new Error("Le lecteur vidéo est invalide.");
     }
+    if (typeof wait !== "function") throw new TypeError("wait doit être une fonction.");
     if (typeof onStateChange !== "function") {
       throw new TypeError("onStateChange doit être une fonction.");
     }
@@ -29,6 +31,7 @@ export class ActiveItemController {
     this.gameState = gameState;
     this.itemController = itemController;
     this.video = video;
+    this.wait = wait;
     this.onStateChange = onStateChange;
     this.onStatusChange = onStatusChange;
     this.activeOperation = null;
@@ -52,12 +55,16 @@ export class ActiveItemController {
   getItemModel(itemId) {
     const item = getItemById(itemId);
     const state = this.itemController.getState(itemId);
+    const recharge = this.itemController.getEffectiveRecharge(itemId);
     const upgraded = this.gameState.isItemUpgraded(itemId);
-    const suffix = upgraded ? " +" : "";
 
     let statusLabel = "disponible";
     if (state.active) {
       statusLabel = "actif";
+    } else if (!state.available && recharge?.type === RECHARGE_TYPES.ELITE) {
+      statusLabel = "recharge après un élite";
+    } else if (!state.available && recharge?.type === RECHARGE_TYPES.ONCE_PER_RUN) {
+      statusLabel = "déjà utilisé cette partie";
     } else if (!state.available) {
       const rounds = state.remainingRechargeRounds;
       statusLabel = `recharge dans ${rounds} rencontre${rounds > 1 ? "s" : ""}`;
@@ -65,7 +72,7 @@ export class ActiveItemController {
 
     return {
       id: itemId,
-      name: `${item?.name ?? itemId}${suffix}`,
+      name: `${item?.name ?? itemId}${upgraded ? " +" : ""}`,
       upgraded,
       available: state.available,
       active: state.active,
@@ -90,7 +97,9 @@ export class ActiveItemController {
     this.activeOperation = {
       id: currentOperationId,
       itemId,
-      cancelled: false
+      cancelled: false,
+      previousOpacity: this.video.style.opacity,
+      previousMuted: this.video.muted
     };
 
     this.itemController.activate(itemId);
@@ -112,6 +121,7 @@ export class ActiveItemController {
           throw new Error(`Effet actif inconnu : ${item.effect.type}`);
       }
     } finally {
+      this.restoreVideoState(currentOperationId);
       this.itemController.finishActivation(itemId);
       if (this.activeOperation?.id === currentOperationId) {
         this.activeOperation = null;
@@ -120,15 +130,14 @@ export class ActiveItemController {
     }
   }
 
-  async countdown(itemId, operationId, durationSeconds, label) {
+  async countdown(operationId, durationSeconds, label) {
     for (let remaining = durationSeconds; remaining > 0; remaining -= 1) {
       if (!this.isOperationValid(operationId)) return false;
       this.onStatusChange(
         `${label} actif : ${remaining} seconde${remaining > 1 ? "s" : ""}.`
       );
-      await wait(1000);
+      await this.wait(1000);
     }
-
     return this.isOperationValid(operationId);
   }
 
@@ -147,7 +156,6 @@ export class ActiveItemController {
 
     this.video.pause();
     const completed = await this.countdown(
-      itemId,
       operationId,
       durationSeconds,
       item?.name ?? itemId
@@ -163,46 +171,34 @@ export class ActiveItemController {
     const item = getItemById(itemId);
     const values = this.itemController.getEffectiveValues(itemId);
     const durationSeconds = Math.max(1, Number(values?.durationSeconds) || 1);
-    const previousOpacity = this.video.style.opacity;
-
-    try {
-      this.video.style.opacity = "0";
-      await this.countdown(
-        itemId,
-        operationId,
-        durationSeconds,
-        item?.name ?? itemId
-      );
-    } finally {
-      this.video.style.opacity = previousOpacity;
-    }
+    this.video.style.opacity = "0";
+    await this.countdown(operationId, durationSeconds, item?.name ?? itemId);
   }
 
   async runMuteEffect(itemId, operationId) {
     const item = getItemById(itemId);
     const values = this.itemController.getEffectiveValues(itemId);
     const durationSeconds = Math.max(1, Number(values?.durationSeconds) || 1);
-    const previousMuted = this.video.muted;
+    this.video.muted = true;
+    await this.countdown(operationId, durationSeconds, item?.name ?? itemId);
+  }
 
-    try {
-      this.video.muted = true;
-      await this.countdown(
-        itemId,
-        operationId,
-        durationSeconds,
-        item?.name ?? itemId
-      );
-    } finally {
-      this.video.muted = previousMuted;
-    }
+  restoreVideoState(operationId) {
+    const operation = this.activeOperation;
+    if (!operation || operation.id !== operationId) return;
+    this.video.style.opacity = operation.previousOpacity;
+    this.video.muted = operation.previousMuted;
   }
 
   cancelActiveEffect() {
-    if (this.activeOperation) {
-      this.activeOperation.cancelled = true;
-    }
+    const operation = this.activeOperation;
+    if (!operation) return false;
 
-    this.video.style.opacity = "";
-    this.video.muted = false;
+    operation.cancelled = true;
+    this.restoreVideoState(operation.id);
+    this.itemController.finishActivation(operation.itemId);
+    this.activeOperation = null;
+    this.onStateChange();
+    return true;
   }
 }
