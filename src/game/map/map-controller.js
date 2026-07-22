@@ -20,21 +20,19 @@ export class MapController {
     registerMapController(this);
   }
 
+  setRoomSelectionHandler(handler) {
+    if (handler !== null && typeof handler !== "function") {
+      throw new Error("Le gestionnaire de salle doit être une fonction.");
+    }
+
+    this.roomSelectionHandler = handler;
+  }
+
   setMap(map) {
     this.map = map;
     this.nodesById = new Map(
       map.nodes.map((node) => [node.id, node])
     );
-  }
-
-  setRoomSelectionHandler(handler) {
-    if (handler !== null && typeof handler !== "function") {
-      throw new Error(
-        "Le gestionnaire de sélection de salle doit être une fonction."
-      );
-    }
-
-    this.roomSelectionHandler = handler;
   }
 
   regenerate({ seed } = {}) {
@@ -121,7 +119,9 @@ export class MapController {
       (targetNode.type === "shop" || targetNode.type === "campfire") &&
       this.roomSelectionHandler !== null
     ) {
-      this.roomSelectionHandler(targetNode);
+      queueMicrotask(() => {
+        this.roomSelectionHandler?.(targetNode);
+      });
     }
 
     return targetNode;
