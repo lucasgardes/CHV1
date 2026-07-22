@@ -57,25 +57,63 @@ function updateResourceDisplay(gameState) {
       }).join(", ");
 }
 
-function showMap(gameState, mapController) {
+function showMap(gameState) {
   getElement("map-screen").hidden = false;
   updateResourceDisplay(gameState);
+}
 
-  window.dispatchEvent(new CustomEvent("chv:map-refresh", {
-    detail: {
-      gameState,
-      mapController
+function installTimeOutUpgradeExtension() {
+  const video = getElement("round-video", HTMLVideoElement);
+  const status = getElement("active-item-status");
+  let pendingExtraSeconds = 0;
+  let applyingExtension = false;
+
+  window.addEventListener("chv:time-out-extra", (event) => {
+    pendingExtraSeconds = Math.max(
+      0,
+      Number(event.detail?.extraSeconds) || 0
+    );
+  });
+
+  video.addEventListener("play", () => {
+    if (pendingExtraSeconds <= 0 || applyingExtension) {
+      return;
     }
-  }));
+
+    const extraSeconds = pendingExtraSeconds;
+    pendingExtraSeconds = 0;
+    applyingExtension = true;
+    video.pause();
+
+    let remaining = extraSeconds;
+    status.textContent =
+      `Temps mort + actif : ${remaining} secondes supplémentaires.`;
+
+    const timer = window.setInterval(() => {
+      remaining -= 1;
+
+      if (remaining > 0) {
+        status.textContent =
+          `Temps mort + actif : ${remaining} seconde${remaining > 1 ? "s" : ""} supplémentaire${remaining > 1 ? "s" : ""}.`;
+        return;
+      }
+
+      window.clearInterval(timer);
+      applyingExtension = false;
+      status.textContent = "Reprise de la vidéo...";
+      void video.play();
+    }, 1000);
+  });
 }
 
 function initializeRooms() {
   ensureStylesheet();
+  installTimeOutUpgradeExtension();
 
   const runtime = getGameRuntime();
-  const { gameState, mapController, itemController } = runtime;
+  const { gameState, itemController } = runtime;
 
-  if (!gameState || !mapController || !itemController) {
+  if (!gameState || !runtime.mapController || !itemController) {
     throw new Error(
       "Les contrôleurs principaux doivent être initialisés avant les salles."
     );
@@ -124,7 +162,7 @@ function initializeRooms() {
     shopView,
     campfireView,
     onRoomCompleted() {
-      showMap(gameState, mapController);
+      showMap(gameState);
     }
   });
 
