@@ -1,5 +1,9 @@
 "use strict";
 
+import {
+  registerGameState
+} from "./game-runtime.js";
+
 export const GAME_STATUS = Object.freeze({
   MENU: "menu",
   MAP: "map",
@@ -7,18 +11,22 @@ export const GAME_STATUS = Object.freeze({
   REWARD: "reward",
   GAME_OVER: "game-over",
   VICTORY: "victory",
-  EVENT: "event"
+  EVENT: "event",
+  SHOP: "shop",
+  CAMPFIRE: "campfire"
 });
 
 export class GameState {
   constructor() {
     this.reset();
+    registerGameState(this);
   }
 
   reset() {
     this.status = GAME_STATUS.MENU;
     this.gold = 50;
     this.inventory = [];
+    this.upgradedItemIds = [];
     this.currentNodeId = null;
     this.completedNodeIds = [];
     this.currentEncounter = null;
@@ -90,6 +98,19 @@ export class GameState {
     }
 
     this.inventory.push(itemId);
+    return true;
+  }
+
+  isItemUpgraded(itemId) {
+    return this.upgradedItemIds.includes(itemId);
+  }
+
+  upgradeItem(itemId) {
+    if (!this.hasItem(itemId) || this.isItemUpgraded(itemId)) {
+      return false;
+    }
+
+    this.upgradedItemIds.push(itemId);
     return true;
   }
 }
