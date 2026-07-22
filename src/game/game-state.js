@@ -25,6 +25,7 @@ export class GameState {
     this.currentNodeId = null;
     this.completedNodeIds = [];
     this.currentEncounter = null;
+    this.nextFunscriptDifficultyShift = 0;
   }
 
   startRun(startNodeId = "start") {
@@ -42,6 +43,24 @@ export class GameState {
 
   setCurrentEncounter(encounter) {
     this.currentEncounter = encounter;
+  }
+
+  queueNextFunscriptDifficultyShift(amount) {
+    if (!Number.isInteger(amount) || amount === 0) {
+      throw new Error("Le changement de difficulté doit être un entier non nul.");
+    }
+
+    this.nextFunscriptDifficultyShift += amount;
+    this.nextFunscriptDifficultyShift = Math.max(
+      -2,
+      Math.min(2, this.nextFunscriptDifficultyShift)
+    );
+  }
+
+  consumeNextFunscriptDifficultyShift() {
+    const shift = this.nextFunscriptDifficultyShift;
+    this.nextFunscriptDifficultyShift = 0;
+    return shift;
   }
 
   completeCurrentNode() {
