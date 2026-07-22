@@ -22,6 +22,7 @@
     <title>CHV1 — Test vidéo</title>
 
     <link rel="stylesheet" href="./style.css" />
+    <link rel="stylesheet" href="./shop-campfire.css" />
     <script src="./renderer.bundle.js" defer></script>
   </head>
 
@@ -129,6 +130,95 @@
         <div
           id="reward-choice-list"
           class="choice-list"
+        ></div>
+      </section>
+
+      <section
+        id="shop-screen"
+        class="game-screen room-screen"
+        hidden
+      >
+        <p class="screen-kicker">Commerce</p>
+        <h2>Boutique</h2>
+
+        <p class="screen-description">
+          Achète des objets ou renouvelle le stock avant de poursuivre.
+        </p>
+
+        <div class="room-toolbar">
+          <p class="room-gold">
+            Or : <strong id="shop-gold-value">0</strong>
+          </p>
+
+          <button
+            id="shop-reroll-button"
+            class="secondary-button"
+            type="button"
+          >
+            Renouveler le stock
+          </button>
+        </div>
+
+        <div
+          id="shop-stock-list"
+          class="room-card-grid"
+        ></div>
+
+        <button
+          id="shop-leave-button"
+          class="primary-button"
+          type="button"
+        >
+          Quitter la boutique
+        </button>
+      </section>
+
+      <section
+        id="campfire-screen"
+        class="game-screen room-screen"
+        hidden
+      >
+        <p class="screen-kicker">Halte</p>
+        <h2>Feu de camp</h2>
+
+        <p
+          id="campfire-message"
+          class="screen-description room-message"
+        >
+          Choisis une seule action.
+        </p>
+
+        <div
+          id="campfire-main-choices"
+          class="room-actions"
+        >
+          <button
+            id="campfire-rest-button"
+            class="room-action-button"
+            type="button"
+          >
+            <strong>Se reposer</strong>
+            <span>
+              Recharge immédiatement tous les objets rechargeables.
+            </span>
+          </button>
+
+          <button
+            id="campfire-upgrade-button"
+            class="room-action-button primary-button"
+            type="button"
+          >
+            <strong>Améliorer un objet</strong>
+            <span>
+              Choisis un objet possédé qui n’a pas encore été amélioré.
+            </span>
+          </button>
+        </div>
+
+        <div
+          id="campfire-upgrade-list"
+          class="room-upgrade-list"
+          hidden
         ></div>
       </section>
 
