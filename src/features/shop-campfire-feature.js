@@ -62,88 +62,99 @@ function showMap(gameState) {
   updateResourceDisplay(gameState);
 }
 
-function formatTimeOutStatus(remainingSeconds) {
-  return remainingSeconds > 0
-    ? `Temps mort actif : reprise dans ${remainingSeconds} seconde${remainingSeconds > 1 ? "s" : ""}.`
-    : "Reprise de la vidéo...";
+function wait(durationMilliseconds) {
+  return new Promise((resolve) => {
+    window.setTimeout(resolve, durationMilliseconds);
+  });
 }
 
-function installTimeOutUpgradeExtension() {
+async function runCountdown(durationSeconds, onTick) {
+  for (
+    let remainingSeconds = durationSeconds;
+    remainingSeconds > 0;
+    remainingSeconds -= 1
+  ) {
+    onTick(remainingSeconds);
+    await wait(1000);
+  }
+
+  onTick(0);
+}
+
+function installUpgradedTimeOutHandler(gameState, itemController) {
   const video = getElement("round-video", HTMLVideoElement);
   const status = getElement("active-item-status");
-  let pendingExtraSeconds = 0;
-  let applyingExtension = false;
-  let rewritingStatus = false;
+  const itemList = getElement("active-item-list", HTMLDivElement);
+  let running = false;
 
-  window.addEventListener("chv:time-out-extra", (event) => {
-    pendingExtraSeconds = Math.max(
-      0,
-      Number(event.detail?.extraSeconds) || 0
-    );
-  });
+  itemList.addEventListener("click", (event) => {
+    const target = event.target;
 
-  const observer = new MutationObserver(() => {
+    if (!(target instanceof Element)) {
+      return;
+    }
+
+    const button = target.closest('button[data-item-id="time-out"]');
+
+    if (!(button instanceof HTMLButtonElement)) {
+      return;
+    }
+
+    if (!gameState.isItemUpgraded("time-out")) {
+      return;
+    }
+
+    event.preventDefault();
+    event.stopImmediatePropagation();
+
     if (
-      rewritingStatus ||
-      applyingExtension ||
-      pendingExtraSeconds <= 0
+      running ||
+      gameState.status !== "encounter" ||
+      video.paused ||
+      video.ended ||
+      !itemController.isAvailable("time-out")
     ) {
       return;
     }
 
-    const match = status.textContent.match(
-      /Temps mort actif : reprise dans (\d+) seconde/
-    );
+    running = true;
+    button.disabled = true;
 
-    if (!match) {
-      return;
-    }
+    void (async () => {
+      try {
+        const values = itemController.getEffectiveValues("time-out");
+        const durationSeconds = values?.durationSeconds ?? 45;
 
-    const baseRemaining = Number(match[1]);
-    const displayedRemaining = baseRemaining + pendingExtraSeconds;
+        itemController.activate("time-out");
+        itemController.consumeCharge("time-out");
+        video.pause();
 
-    rewritingStatus = true;
-    status.textContent = formatTimeOutStatus(displayedRemaining);
-    rewritingStatus = false;
-  });
+        await runCountdown(durationSeconds, (remainingSeconds) => {
+          status.textContent = remainingSeconds > 0
+            ? `Temps mort + actif : reprise dans ${remainingSeconds} seconde${remainingSeconds > 1 ? "s" : ""}.`
+            : "Reprise de la vidéo...";
+        });
 
-  observer.observe(status, {
-    childList: true,
-    characterData: true,
-    subtree: true
-  });
+        itemController.finishActivation("time-out");
 
-  video.addEventListener("play", () => {
-    if (pendingExtraSeconds <= 0 || applyingExtension) {
-      return;
-    }
-
-    const extraSeconds = pendingExtraSeconds;
-    pendingExtraSeconds = 0;
-    applyingExtension = true;
-    video.pause();
-
-    let remaining = extraSeconds;
-    status.textContent = formatTimeOutStatus(remaining);
-
-    const timer = window.setInterval(() => {
-      remaining -= 1;
-      status.textContent = formatTimeOutStatus(remaining);
-
-      if (remaining > 0) {
-        return;
+        if (gameState.status === "encounter" && !video.ended) {
+          await video.play();
+          status.textContent =
+            "Temps mort + utilisé. Recharge au prochain round.";
+        }
+      } catch (error) {
+        console.error("Impossible d’utiliser Temps mort + :", error);
+        itemController.finishActivation("time-out");
+        status.textContent = "Impossible d’utiliser Temps mort +.";
+      } finally {
+        running = false;
       }
-
-      window.clearInterval(timer);
-      applyingExtension = false;
-      void video.play();
-    }, 1000);
-  });
+    })();
+  }, true);
 }
 
 function initializeRooms() {
   ensureStylesheet();
-  installTimeOutUpgradeExtension();
 
   const runtime = getGameRuntime();
   const { gameState, itemController } = runtime;
@@ -153,6 +164,8 @@ function initializeRooms() {
       "Les contrôleurs principaux doivent être initialisés avant les salles."
     );
   }
+
+  installUpgradedTimeOutHandler(gameState, itemController);
 
   let roomController = null;
 
