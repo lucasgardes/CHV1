@@ -26,17 +26,9 @@ export class EncounterController {
     onBossCompleted = () => {},
     onPlaybackFallback = () => {}
   }) {
-    if (!gameState) {
-      throw new Error("L’état de partie est requis.");
-    }
-
-    if (!itemController) {
-      throw new Error("Le contrôleur d’objets est requis.");
-    }
-
-    if (!(video instanceof HTMLVideoElement)) {
-      throw new Error("Le lecteur vidéo est invalide.");
-    }
+    if (!gameState) throw new Error("L’état de partie est requis.");
+    if (!itemController) throw new Error("Le contrôleur d’objets est requis.");
+    if (!(video instanceof HTMLVideoElement)) throw new Error("Le lecteur vidéo est invalide.");
 
     assertFunction(getEncounterById, "getEncounterById");
     assertFunction(stopVideoSync, "stopVideoSync");
@@ -62,7 +54,6 @@ export class EncounterController {
     this.onEliteCompleted = onEliteCompleted;
     this.onBossCompleted = onBossCompleted;
     this.onPlaybackFallback = onPlaybackFallback;
-
     this.currentEncounter = null;
   }
 
@@ -72,23 +63,16 @@ export class EncounterController {
 
   async load(encounterId) {
     const encounter = this.getEncounterById(encounterId);
-
-    if (encounter === null) {
-      throw new Error(`Rencontre introuvable : ${encounterId}`);
-    }
+    if (encounter === null) throw new Error(`Rencontre introuvable : ${encounterId}`);
 
     await this.stopVideoSync();
-
     this.currentEncounter = encounter;
     this.resetActions();
-
     this.video.pause();
     this.video.src = encounter.videoPath;
     this.video.load();
-
     this.setFunscriptPath(encounter.funscriptPath);
     await this.loadFunscript();
-
     this.itemController.resetForEncounter();
     this.onEncounterLoaded(encounter);
 
@@ -103,20 +87,14 @@ export class EncounterController {
 
   async complete() {
     const encounterState = this.gameState.currentEncounter;
-
     if (encounterState === null) {
       console.warn("Aucune rencontre active à terminer.");
       return null;
     }
 
-    const encounter = this.getEncounterById(
-      encounterState.encounterId
-    );
-
+    const encounter = this.getEncounterById(encounterState.encounterId);
     if (encounter === null) {
-      throw new Error(
-        `Rencontre introuvable : ${encounterState.encounterId}`
-      );
+      throw new Error(`Rencontre introuvable : ${encounterState.encounterId}`);
     }
 
     const rewardGold = Number.isFinite(encounter.rewardGold)
@@ -126,53 +104,27 @@ export class EncounterController {
     this.gameState.completeCurrentNode();
     this.currentEncounter = null;
 
+    const rechargeResult = this.itemController.advanceRechargeCounters({
+      encounterType: encounter.type
+    });
+
     if (encounter.type === "boss") {
       this.gameState.setCurrentEncounter(null);
       this.gameState.setStatus(GAME_STATUS.VICTORY);
-
-      this.onBossCompleted({
-        encounter,
-        rewardGold,
-        gameState: this.gameState
-      });
-
-      return {
-        type: "boss",
-        encounter,
-        rewardGold
-      };
+      this.onBossCompleted({ encounter, rewardGold, rechargeResult, gameState: this.gameState });
+      return { type: "boss", encounter, rewardGold, rechargeResult };
     }
 
     if (encounter.type === "elite") {
       this.gameState.setStatus(GAME_STATUS.REWARD);
-
-      this.onEliteCompleted({
-        encounter,
-        rewardGold,
-        gameState: this.gameState
-      });
-
-      return {
-        type: "elite",
-        encounter,
-        rewardGold
-      };
+      this.onEliteCompleted({ encounter, rewardGold, rechargeResult, gameState: this.gameState });
+      return { type: "elite", encounter, rewardGold, rechargeResult };
     }
 
     this.gameState.addGold(rewardGold);
     this.gameState.setCurrentEncounter(null);
     this.gameState.setStatus(GAME_STATUS.MAP);
-
-    this.onNormalCompleted({
-      encounter,
-      rewardGold,
-      gameState: this.gameState
-    });
-
-    return {
-      type: "normal",
-      encounter,
-      rewardGold
-    };
+    this.onNormalCompleted({ encounter, rewardGold, rechargeResult, gameState: this.gameState });
+    return { type: "normal", encounter, rewardGold, rechargeResult };
   }
 }
