@@ -28,14 +28,10 @@ export class ItemController {
 
   resetForRun() {
     this.runtimeStates.clear();
-    for (const itemId of this.gameState.inventory) {
-      this.ensureRuntimeState(itemId);
-    }
+    for (const itemId of this.gameState.inventory) this.ensureRuntimeState(itemId);
   }
 
-  hasItem(itemId) {
-    return this.gameState.hasItem(itemId);
-  }
+  hasItem(itemId) { return this.gameState.hasItem(itemId); }
 
   isAvailable(itemId) {
     if (!this.hasItem(itemId)) return false;
@@ -43,9 +39,7 @@ export class ItemController {
     return state.available && !state.active;
   }
 
-  isActive(itemId) {
-    return this.ensureRuntimeState(itemId).active;
-  }
+  isActive(itemId) { return this.ensureRuntimeState(itemId).active; }
 
   activate(itemId) {
     if (!this.hasItem(itemId)) throw new Error(`L’objet ${itemId} n’est pas possédé.`);
@@ -55,9 +49,7 @@ export class ItemController {
     state.active = true;
   }
 
-  finishActivation(itemId) {
-    this.ensureRuntimeState(itemId).active = false;
-  }
+  finishActivation(itemId) { this.ensureRuntimeState(itemId).active = false; }
 
   consumeCharge(itemId) {
     const item = getItemById(itemId);
@@ -72,6 +64,7 @@ export class ItemController {
 
     switch (recharge?.type) {
       case RECHARGE_TYPES.ENCOUNTERS:
+      case RECHARGE_TYPES.ELITE_OR_ENCOUNTERS:
         state.remainingRechargeRounds = Math.max(1, Number(recharge.amount) || 1);
         break;
       case RECHARGE_TYPES.ELITE:
@@ -107,7 +100,6 @@ export class ItemController {
       const item = getItemById(itemId);
       const recharge = this.getEffectiveRecharge(itemId);
       const state = this.ensureRuntimeState(itemId);
-
       if (item?.type !== "rechargeable" || state.available || state.active) continue;
 
       if (recharge?.type === RECHARGE_TYPES.ELITE) {
@@ -118,7 +110,16 @@ export class ItemController {
         continue;
       }
 
-      if (recharge?.type !== RECHARGE_TYPES.ENCOUNTERS) continue;
+      if (recharge?.type === RECHARGE_TYPES.ELITE_OR_ENCOUNTERS && encounterType === "elite") {
+        this.recharge(itemId);
+        rechargedItemIds.push(itemId);
+        continue;
+      }
+
+      if (
+        recharge?.type !== RECHARGE_TYPES.ENCOUNTERS &&
+        recharge?.type !== RECHARGE_TYPES.ELITE_OR_ENCOUNTERS
+      ) continue;
 
       state.remainingRechargeRounds = Math.max(0, state.remainingRechargeRounds - 1);
       if (state.remainingRechargeRounds === 0) {
@@ -142,7 +143,5 @@ export class ItemController {
     return getItemRecharge(itemId, this.gameState.isItemUpgraded(itemId));
   }
 
-  getState(itemId) {
-    return { ...this.ensureRuntimeState(itemId) };
-  }
+  getState(itemId) { return { ...this.ensureRuntimeState(itemId) }; }
 }
