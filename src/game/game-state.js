@@ -1,9 +1,5 @@
 "use strict";
 
-import {
-  registerGameState
-} from "./game-runtime.js";
-
 export const GAME_STATUS = Object.freeze({
   MENU: "menu",
   MAP: "map",
@@ -19,7 +15,6 @@ export const GAME_STATUS = Object.freeze({
 export class GameState {
   constructor() {
     this.reset();
-    registerGameState(this);
   }
 
   reset() {
@@ -42,7 +37,6 @@ export class GameState {
     if (!Object.values(GAME_STATUS).includes(status)) {
       throw new Error(`Statut de partie invalide : ${status}`);
     }
-
     this.status = status;
   }
 
@@ -63,7 +57,6 @@ export class GameState {
     if (typeof nodeId !== "string" || nodeId.trim() === "") {
       throw new Error("L’identifiant de la case est invalide.");
     }
-
     this.currentNodeId = nodeId;
   }
 
@@ -71,7 +64,6 @@ export class GameState {
     if (!Number.isFinite(amount) || amount < 0) {
       throw new Error("La quantité d’or ajoutée est invalide.");
     }
-
     this.gold += amount;
   }
 
@@ -79,11 +71,7 @@ export class GameState {
     if (!Number.isFinite(amount) || amount < 0) {
       throw new Error("La quantité d’or dépensée est invalide.");
     }
-
-    if (this.gold < amount) {
-      return false;
-    }
-
+    if (this.gold < amount) return false;
     this.gold -= amount;
     return true;
   }
@@ -93,10 +81,7 @@ export class GameState {
   }
 
   addItem(itemId) {
-    if (this.hasItem(itemId)) {
-      return false;
-    }
-
+    if (this.hasItem(itemId)) return false;
     this.inventory.push(itemId);
     return true;
   }
@@ -106,10 +91,7 @@ export class GameState {
   }
 
   upgradeItem(itemId) {
-    if (!this.hasItem(itemId) || this.isItemUpgraded(itemId)) {
-      return false;
-    }
-
+    if (!this.hasItem(itemId) || this.isItemUpgraded(itemId)) return false;
     this.upgradedItemIds.push(itemId);
     return true;
   }
