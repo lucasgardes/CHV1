@@ -15,6 +15,7 @@ export class MapController {
     }
 
     this.gameState = gameState;
+    this.roomSelectionHandler = null;
     this.setMap(generateMap({ seed }));
     registerMapController(this);
   }
@@ -24,6 +25,16 @@ export class MapController {
     this.nodesById = new Map(
       map.nodes.map((node) => [node.id, node])
     );
+  }
+
+  setRoomSelectionHandler(handler) {
+    if (handler !== null && typeof handler !== "function") {
+      throw new Error(
+        "Le gestionnaire de sélection de salle doit être une fonction."
+      );
+    }
+
+    this.roomSelectionHandler = handler;
   }
 
   regenerate({ seed } = {}) {
@@ -106,12 +117,11 @@ export class MapController {
 
     this.gameState.moveToNode(targetNode.id);
 
-    if (targetNode.type === "shop" || targetNode.type === "campfire") {
-      queueMicrotask(() => {
-        window.dispatchEvent(new CustomEvent("chv:room-selected", {
-          detail: { node: targetNode }
-        }));
-      });
+    if (
+      (targetNode.type === "shop" || targetNode.type === "campfire") &&
+      this.roomSelectionHandler !== null
+    ) {
+      this.roomSelectionHandler(targetNode);
     }
 
     return targetNode;
