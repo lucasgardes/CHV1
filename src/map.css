@@ -1,0 +1,181 @@
+.map-node-list {
+  display: block;
+  min-height: 0;
+}
+
+.map-scroll-area {
+  width: min(760px, 100%);
+  height: min(68vh, 760px);
+  margin: 0 auto;
+  overflow: auto;
+  border: 1px solid #443653;
+  border-radius: 18px;
+  background:
+    radial-gradient(circle at 50% 100%, rgba(119, 73, 168, 0.2), transparent 42%),
+    linear-gradient(180deg, rgba(13, 10, 18, 0.96), rgba(25, 18, 33, 0.96));
+  scrollbar-color: #755a8f #15101c;
+  scrollbar-width: thin;
+}
+
+.map-graph {
+  position: relative;
+  min-width: 720px;
+  margin: 0 auto;
+}
+
+.map-connections {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+  pointer-events: none;
+}
+
+.map-connection {
+  stroke: #4a3d57;
+  stroke-width: 5;
+  stroke-linecap: round;
+  opacity: 0.7;
+}
+
+.map-connection.is-completed {
+  stroke: #77648c;
+  opacity: 0.95;
+}
+
+.map-connection.is-accessible {
+  stroke: #c492ff;
+  stroke-width: 7;
+  filter: drop-shadow(0 0 7px rgba(196, 146, 255, 0.75));
+  opacity: 1;
+}
+
+.map-node-button {
+  position: absolute;
+  width: 78px;
+  min-width: 78px;
+  height: 78px;
+  min-height: 78px;
+  padding: 0;
+  display: grid;
+  place-items: center;
+  border: 3px solid #554663;
+  border-radius: 50%;
+  background: #1a1422;
+  transform: translate(-50%, -50%);
+  box-shadow: 0 8px 22px rgba(0, 0, 0, 0.42);
+  opacity: 0.52;
+  z-index: 2;
+}
+
+.map-node-button:hover:not(:disabled) {
+  transform: translate(-50%, -50%) scale(1.08);
+}
+
+.map-node-button:disabled {
+  cursor: default;
+}
+
+.map-node-button.is-completed {
+  opacity: 0.78;
+  border-color: #746583;
+}
+
+.map-node-button.is-current {
+  opacity: 1;
+  border-color: #f2d57e;
+  box-shadow:
+    0 0 0 5px rgba(242, 213, 126, 0.14),
+    0 0 22px rgba(242, 213, 126, 0.52);
+}
+
+.map-node-button.is-accessible {
+  opacity: 1;
+  border-color: #c492ff;
+  background: #362149;
+  box-shadow:
+    0 0 0 5px rgba(196, 146, 255, 0.14),
+    0 0 24px rgba(196, 146, 255, 0.62);
+  animation: map-node-pulse 1.8s ease-in-out infinite;
+}
+
+.map-node-normal .map-node-symbol {
+  color: #efeaff;
+}
+
+.map-node-event .map-node-symbol {
+  color: #8fdcff;
+}
+
+.map-node-elite .map-node-symbol {
+  color: #ffad73;
+}
+
+.map-node-boss {
+  width: 94px;
+  min-width: 94px;
+  height: 94px;
+  min-height: 94px;
+  border-color: #d15f78;
+  background: #381620;
+}
+
+.map-node-boss .map-node-symbol {
+  color: #ff839c;
+  font-size: 30px;
+}
+
+.map-node-start .map-node-symbol {
+  color: #74df98;
+}
+
+.map-node-symbol {
+  font-size: 24px;
+  font-weight: 900;
+  line-height: 1;
+}
+
+.map-node-label {
+  position: absolute;
+  top: calc(100% + 10px);
+  left: 50%;
+  width: 150px;
+  color: #cfc5d8;
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 1.25;
+  text-align: center;
+  transform: translateX(-50%);
+  pointer-events: none;
+}
+
+.map-node-button.is-accessible .map-node-label,
+.map-node-button.is-current .map-node-label {
+  color: #fff;
+}
+
+.map-error-message {
+  color: #ff8585;
+  text-align: center;
+}
+
+@keyframes map-node-pulse {
+  0%, 100% {
+    box-shadow:
+      0 0 0 4px rgba(196, 146, 255, 0.12),
+      0 0 18px rgba(196, 146, 255, 0.48);
+  }
+
+  50% {
+    box-shadow:
+      0 0 0 8px rgba(196, 146, 255, 0.18),
+      0 0 30px rgba(196, 146, 255, 0.78);
+  }
+}
+
+@media (max-width: 800px) {
+  .map-scroll-area {
+    width: 100%;
+  }
+}
