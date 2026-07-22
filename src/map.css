@@ -112,6 +112,34 @@
   color: #ffad73;
 }
 
+.map-node-shop {
+  border-color: #d4b15f;
+  background: #302612;
+}
+
+.map-node-shop .map-node-symbol {
+  color: #ffd978;
+}
+
+.map-node-campfire {
+  border-color: #ce744d;
+  background: #321b15;
+}
+
+.map-node-campfire .map-node-symbol {
+  color: #ff986b;
+}
+
+.map-node-hidden {
+  border-style: dashed;
+  border-color: #8891a7;
+  background: #171a22;
+}
+
+.map-node-hidden .map-node-symbol {
+  color: #b7c2dc;
+}
+
 .map-node-boss {
   width: 94px;
   min-width: 94px;
@@ -150,9 +178,45 @@
   pointer-events: none;
 }
 
+.map-node-difficulty {
+  position: absolute;
+  top: calc(100% + 28px);
+  left: 50%;
+  width: 120px;
+  color: #91869b;
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-align: center;
+  text-transform: uppercase;
+  transform: translateX(-50%);
+  pointer-events: none;
+}
+
+.map-difficulty-warmup .map-node-difficulty {
+  color: #77dca0;
+}
+
+.map-difficulty-easy .map-node-difficulty {
+  color: #8fdcff;
+}
+
+.map-difficulty-normal .map-node-difficulty {
+  color: #d5c7e6;
+}
+
+.map-difficulty-hard .map-node-difficulty {
+  color: #ff947a;
+}
+
 .map-node-button.is-accessible .map-node-label,
 .map-node-button.is-current .map-node-label {
   color: #fff;
+}
+
+.map-node-button.is-accessible .map-node-difficulty,
+.map-node-button.is-current .map-node-difficulty {
+  filter: brightness(1.2);
 }
 
 .map-error-message {
