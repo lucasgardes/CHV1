@@ -42,16 +42,12 @@ export class ItemController {
       return false;
     }
 
-    const state =
-      this.ensureRuntimeState(itemId);
-
+    const state = this.ensureRuntimeState(itemId);
     return state.available && !state.active;
   }
 
   isActive(itemId) {
-    const state =
-      this.ensureRuntimeState(itemId);
-
+    const state = this.ensureRuntimeState(itemId);
     return state.active;
   }
 
@@ -62,8 +58,7 @@ export class ItemController {
       );
     }
 
-    const state =
-      this.ensureRuntimeState(itemId);
+    const state = this.ensureRuntimeState(itemId);
 
     if (!state.available) {
       throw new Error(
@@ -81,38 +76,17 @@ export class ItemController {
   }
 
   finishActivation(itemId) {
-    const state =
-      this.ensureRuntimeState(itemId);
-
+    const state = this.ensureRuntimeState(itemId);
     state.active = false;
   }
 
   consumeCharge(itemId) {
-    const state =
-      this.ensureRuntimeState(itemId);
-
+    const state = this.ensureRuntimeState(itemId);
     state.available = false;
-
-    if (itemId === "time-out") {
-      const values = this.getEffectiveValues(itemId);
-      const baseDuration = getItemById(itemId)?.values?.durationSeconds ?? 30;
-      const extraSeconds = Math.max(
-        0,
-        (values?.durationSeconds ?? baseDuration) - baseDuration
-      );
-
-      if (extraSeconds > 0) {
-        window.dispatchEvent(new CustomEvent("chv:time-out-extra", {
-          detail: { extraSeconds }
-        }));
-      }
-    }
   }
 
   recharge(itemId) {
-    const state =
-      this.ensureRuntimeState(itemId);
-
+    const state = this.ensureRuntimeState(itemId);
     state.available = true;
     state.active = false;
   }
@@ -149,8 +123,7 @@ export class ItemController {
   }
 
   getState(itemId) {
-    const state =
-      this.ensureRuntimeState(itemId);
+    const state = this.ensureRuntimeState(itemId);
 
     return {
       available: state.available,
