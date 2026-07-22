@@ -5,7 +5,8 @@ import { getItemById, RECHARGE_TYPES } from "../data/items.js";
 const SUPPORTED_EFFECTS = new Set([
   "pause-video",
   "hide-video",
-  "mute-video"
+  "mute-video",
+  "skip-video-seconds"
 ]);
 
 function defaultWait(milliseconds) {
@@ -23,9 +24,7 @@ export class ActiveItemController {
   }) {
     if (!gameState) throw new Error("L’état de partie est requis.");
     if (!itemController) throw new Error("Le contrôleur d’objets est requis.");
-    if (!(video instanceof HTMLVideoElement)) {
-      throw new Error("Le lecteur vidéo est invalide.");
-    }
+    if (!(video instanceof HTMLVideoElement)) throw new Error("Le lecteur vidéo est invalide.");
     if (typeof wait !== "function") throw new TypeError("wait doit être une fonction.");
     if (typeof onStateChange !== "function") throw new TypeError("onStateChange doit être une fonction.");
     if (typeof onStatusChange !== "function") throw new TypeError("onStatusChange doit être une fonction.");
@@ -40,23 +39,16 @@ export class ActiveItemController {
     this.operationId = 0;
   }
 
-  isBusy() {
-    return this.activeOperation !== null;
-  }
-
-  supportsItem(itemId) {
-    return SUPPORTED_EFFECTS.has(getItemById(itemId)?.effect?.type);
-  }
+  isBusy() { return this.activeOperation !== null; }
+  supportsItem(itemId) { return SUPPORTED_EFFECTS.has(getItemById(itemId)?.effect?.type); }
 
   canUse(itemId) {
-    return (
-      this.supportsItem(itemId) &&
+    return this.supportsItem(itemId) &&
       this.gameState.status === "encounter" &&
       !this.video.paused &&
       !this.video.ended &&
       !this.isBusy() &&
-      this.itemController.isAvailable(itemId)
-    );
+      this.itemController.isAvailable(itemId);
   }
 
   getItemModel(itemId) {
@@ -66,14 +58,11 @@ export class ActiveItemController {
     const upgraded = this.gameState.isItemUpgraded(itemId);
     const supported = this.supportsItem(itemId);
 
-    let statusLabel = supported ? "disponible" : "pas encore implémenté";
-    if (state.active) {
-      statusLabel = "actif";
-    } else if (!state.available && recharge?.type === RECHARGE_TYPES.ELITE) {
-      statusLabel = "recharge après un élite";
-    } else if (!state.available && recharge?.type === RECHARGE_TYPES.ONCE_PER_RUN) {
-      statusLabel = "déjà utilisé cette partie";
-    } else if (!state.available) {
+    let statusLabel = supported ? "disponible" : "mécanique en attente";
+    if (state.active) statusLabel = "actif";
+    else if (!state.available && recharge?.type === RECHARGE_TYPES.ELITE) statusLabel = "recharge après un élite";
+    else if (!state.available && recharge?.type === RECHARGE_TYPES.ONCE_PER_RUN) statusLabel = "déjà utilisé cette partie";
+    else if (!state.available) {
       const rounds = state.remainingRechargeRounds;
       statusLabel = `recharge dans ${rounds} rencontre${rounds > 1 ? "s" : ""}`;
     }
@@ -87,16 +76,12 @@ export class ActiveItemController {
       remainingRechargeRounds: state.remainingRechargeRounds,
       statusLabel,
       disabled: !this.canUse(itemId),
-      title: supported
-        ? (item?.description ?? "")
-        : "Cet effet n’est pas encore implémenté."
+      title: supported ? (item?.description ?? "") : "Cet effet dépend d’une mécanique encore en cours d’intégration."
     };
   }
 
   async use(itemId) {
-    if (!this.canUse(itemId)) {
-      throw new Error(`L’objet ${itemId} ne peut pas être utilisé maintenant.`);
-    }
+    if (!this.canUse(itemId)) throw new Error(`L’objet ${itemId} ne peut pas être utilisé maintenant.`);
 
     const item = getItemById(itemId);
     const currentOperationId = ++this.operationId;
@@ -123,6 +108,9 @@ export class ActiveItemController {
         case "mute-video":
           await this.runMuteEffect(itemId, currentOperationId);
           break;
+        case "skip-video-seconds":
+          this.runSkipEffect(itemId);
+          break;
         default:
           throw new Error(`Effet actif inconnu : ${item.effect.type}`);
       }
@@ -144,11 +132,9 @@ export class ActiveItemController {
   }
 
   isOperationValid(operationId) {
-    return (
-      this.activeOperation?.id === operationId &&
+    return this.activeOperation?.id === operationId &&
       this.activeOperation.cancelled === false &&
-      this.gameState.status === "encounter"
-    );
+      this.gameState.status === "encounter";
   }
 
   async runPauseEffect(itemId, operationId) {
@@ -157,7 +143,6 @@ export class ActiveItemController {
     const durationSeconds = Math.max(1, Number(values?.durationSeconds) || 1);
     this.video.pause();
     const completed = await this.countdown(operationId, durationSeconds, item?.name ?? itemId);
-
     if (completed && !this.video.ended) {
       this.onStatusChange("Reprise de la vidéo...");
       await this.video.play();
@@ -180,6 +165,18 @@ export class ActiveItemController {
     await this.countdown(operationId, durationSeconds, item?.name ?? itemId);
   }
 
+  runSkipEffect(itemId) {
+    const values = this.itemController.getEffectiveValues(itemId);
+    const seconds = Math.max(1, Number(values?.seconds) || 1);
+    const maximumTime = Number.isFinite(this.video.duration)
+      ? Math.max(0, this.video.duration - 0.1)
+      : this.video.currentTime + seconds;
+    const previousTime = this.video.currentTime;
+    this.video.currentTime = Math.min(maximumTime, previousTime + seconds);
+    const skipped = Math.max(0, Math.round(this.video.currentTime - previousTime));
+    this.onStatusChange(`${getItemById(itemId)?.name ?? itemId} : ${skipped} seconde${skipped > 1 ? "s" : ""} passée${skipped > 1 ? "s" : ""}.`);
+  }
+
   restoreVideoState(operationId) {
     const operation = this.activeOperation;
     if (!operation || operation.id !== operationId) return;
@@ -190,7 +187,6 @@ export class ActiveItemController {
   cancelActiveEffect() {
     const operation = this.activeOperation;
     if (!operation) return false;
-
     operation.cancelled = true;
     this.restoreVideoState(operation.id);
     this.itemController.finishActivation(operation.itemId);
