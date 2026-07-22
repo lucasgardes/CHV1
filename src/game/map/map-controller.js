@@ -1,38 +1,17 @@
 "use strict";
 
-import {
-  generateMap
-} from "./map-generator.js";
-
-import {
-  registerMapController
-} from "../game-runtime.js";
+import { generateMap } from "./map-generator.js";
 
 export class MapController {
   constructor({ gameState, seed } = {}) {
-    if (!gameState) {
-      throw new Error("L’état de partie est requis.");
-    }
-
+    if (!gameState) throw new Error("L’état de partie est requis.");
     this.gameState = gameState;
-    this.roomSelectionHandler = null;
     this.setMap(generateMap({ seed }));
-    registerMapController(this);
-  }
-
-  setRoomSelectionHandler(handler) {
-    if (handler !== null && typeof handler !== "function") {
-      throw new Error("Le gestionnaire de salle doit être une fonction.");
-    }
-
-    this.roomSelectionHandler = handler;
   }
 
   setMap(map) {
     this.map = map;
-    this.nodesById = new Map(
-      map.nodes.map((node) => [node.id, node])
-    );
+    this.nodesById = new Map(map.nodes.map((node) => [node.id, node]));
   }
 
   regenerate({ seed } = {}) {
@@ -47,9 +26,7 @@ export class MapController {
   }
 
   getNodes({ includeHidden = false } = {}) {
-    return this.map.nodes.filter((node) => {
-      return includeHidden || node.hidden !== true;
-    });
+    return this.map.nodes.filter((node) => includeHidden || node.hidden !== true);
   }
 
   getRows() {
@@ -73,22 +50,10 @@ export class MapController {
         .filter((node) => node !== null && node.hidden !== true);
 
     Object.defineProperties(accessibleNodes, {
-      mapRows: {
-        value: this.getRows(),
-        enumerable: false
-      },
-      mapNodes: {
-        value: this.getNodes(),
-        enumerable: false
-      },
-      mapSeed: {
-        value: this.map.seed,
-        enumerable: false
-      },
-      validation: {
-        value: this.map.validation,
-        enumerable: false
-      }
+      mapRows: { value: this.getRows(), enumerable: false },
+      mapNodes: { value: this.getNodes(), enumerable: false },
+      mapSeed: { value: this.map.seed, enumerable: false },
+      validation: { value: this.map.validation, enumerable: false }
     });
 
     return accessibleNodes;
@@ -100,53 +65,31 @@ export class MapController {
 
   moveToNode(nodeId) {
     const targetNode = this.getNodeById(nodeId);
-
     if (targetNode === null || !this.isNodeAccessible(nodeId)) {
-      throw new Error(
-        `La case ${nodeId} n’est pas accessible.`
-      );
+      throw new Error(`La case ${nodeId} n’est pas accessible.`);
     }
 
     const currentNode = this.getCurrentNode();
-
     if (currentNode !== null && currentNode.type === "start") {
       this.gameState.completeCurrentNode();
     }
 
     this.gameState.moveToNode(targetNode.id);
-
-    if (
-      (targetNode.type === "shop" || targetNode.type === "campfire") &&
-      this.roomSelectionHandler !== null
-    ) {
-      queueMicrotask(() => {
-        this.roomSelectionHandler?.(targetNode);
-      });
-    }
-
     return targetNode;
   }
 
   revealHiddenEncounter() {
     const hiddenConnection = this.map.hiddenConnection;
-
-    if (!hiddenConnection) {
-      return null;
-    }
+    if (!hiddenConnection) return null;
 
     const sourceNode = this.getNodeById(hiddenConnection.sourceNodeId);
     const hiddenNode = this.getNodeById(hiddenConnection.nodeId);
-
-    if (!sourceNode || !hiddenNode) {
-      return null;
-    }
+    if (!sourceNode || !hiddenNode) return null;
 
     hiddenNode.hidden = false;
-
     if (!sourceNode.nextNodeIds.includes(hiddenNode.id)) {
       sourceNode.nextNodeIds.push(hiddenNode.id);
     }
-
     return hiddenNode;
   }
 }
