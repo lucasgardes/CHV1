@@ -1,5 +1,14 @@
 "use strict";
 
+import {
+  getItemById,
+  getItemValues
+} from "../data/items.js";
+
+import {
+  registerItemController
+} from "./game-runtime.js";
+
 export class ItemController {
   constructor({ gameState }) {
     if (!gameState) {
@@ -10,6 +19,7 @@ export class ItemController {
 
     this.gameState = gameState;
     this.runtimeStates = new Map();
+    registerItemController(this);
   }
 
   ensureRuntimeState(itemId) {
@@ -92,6 +102,16 @@ export class ItemController {
     state.active = false;
   }
 
+  rechargeAll() {
+    for (const itemId of this.gameState.inventory) {
+      const item = getItemById(itemId);
+
+      if (item?.type === "rechargeable") {
+        this.recharge(itemId);
+      }
+    }
+  }
+
   resetForEncounter() {
     for (const itemId of this.gameState.inventory) {
       switch (itemId) {
@@ -104,6 +124,13 @@ export class ItemController {
           break;
       }
     }
+  }
+
+  getEffectiveValues(itemId) {
+    return getItemValues(
+      itemId,
+      this.gameState.isItemUpgraded(itemId)
+    );
   }
 
   getState(itemId) {
