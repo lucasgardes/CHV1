@@ -2,6 +2,12 @@
 
 import { getItemById, RECHARGE_TYPES } from "../data/items.js";
 
+const SUPPORTED_EFFECTS = new Set([
+  "pause-video",
+  "hide-video",
+  "mute-video"
+]);
+
 function defaultWait(milliseconds) {
   return new Promise((resolve) => window.setTimeout(resolve, milliseconds));
 }
@@ -21,12 +27,8 @@ export class ActiveItemController {
       throw new Error("Le lecteur vidéo est invalide.");
     }
     if (typeof wait !== "function") throw new TypeError("wait doit être une fonction.");
-    if (typeof onStateChange !== "function") {
-      throw new TypeError("onStateChange doit être une fonction.");
-    }
-    if (typeof onStatusChange !== "function") {
-      throw new TypeError("onStatusChange doit être une fonction.");
-    }
+    if (typeof onStateChange !== "function") throw new TypeError("onStateChange doit être une fonction.");
+    if (typeof onStatusChange !== "function") throw new TypeError("onStatusChange doit être une fonction.");
 
     this.gameState = gameState;
     this.itemController = itemController;
@@ -42,8 +44,13 @@ export class ActiveItemController {
     return this.activeOperation !== null;
   }
 
+  supportsItem(itemId) {
+    return SUPPORTED_EFFECTS.has(getItemById(itemId)?.effect?.type);
+  }
+
   canUse(itemId) {
     return (
+      this.supportsItem(itemId) &&
       this.gameState.status === "encounter" &&
       !this.video.paused &&
       !this.video.ended &&
@@ -57,8 +64,9 @@ export class ActiveItemController {
     const state = this.itemController.getState(itemId);
     const recharge = this.itemController.getEffectiveRecharge(itemId);
     const upgraded = this.gameState.isItemUpgraded(itemId);
+    const supported = this.supportsItem(itemId);
 
-    let statusLabel = "disponible";
+    let statusLabel = supported ? "disponible" : "pas encore implémenté";
     if (state.active) {
       statusLabel = "actif";
     } else if (!state.available && recharge?.type === RECHARGE_TYPES.ELITE) {
@@ -79,7 +87,9 @@ export class ActiveItemController {
       remainingRechargeRounds: state.remainingRechargeRounds,
       statusLabel,
       disabled: !this.canUse(itemId),
-      title: item?.description ?? ""
+      title: supported
+        ? (item?.description ?? "")
+        : "Cet effet n’est pas encore implémenté."
     };
   }
 
@@ -89,10 +99,6 @@ export class ActiveItemController {
     }
 
     const item = getItemById(itemId);
-    if (!item?.effect?.type) {
-      throw new Error(`L’objet ${itemId} ne possède aucun effet actif implémenté.`);
-    }
-
     const currentOperationId = ++this.operationId;
     this.activeOperation = {
       id: currentOperationId,
@@ -123,9 +129,7 @@ export class ActiveItemController {
     } finally {
       this.restoreVideoState(currentOperationId);
       this.itemController.finishActivation(itemId);
-      if (this.activeOperation?.id === currentOperationId) {
-        this.activeOperation = null;
-      }
+      if (this.activeOperation?.id === currentOperationId) this.activeOperation = null;
       this.onStateChange();
     }
   }
@@ -133,9 +137,7 @@ export class ActiveItemController {
   async countdown(operationId, durationSeconds, label) {
     for (let remaining = durationSeconds; remaining > 0; remaining -= 1) {
       if (!this.isOperationValid(operationId)) return false;
-      this.onStatusChange(
-        `${label} actif : ${remaining} seconde${remaining > 1 ? "s" : ""}.`
-      );
+      this.onStatusChange(`${label} actif : ${remaining} seconde${remaining > 1 ? "s" : ""}.`);
       await this.wait(1000);
     }
     return this.isOperationValid(operationId);
@@ -153,13 +155,8 @@ export class ActiveItemController {
     const item = getItemById(itemId);
     const values = this.itemController.getEffectiveValues(itemId);
     const durationSeconds = Math.max(1, Number(values?.durationSeconds) || 1);
-
     this.video.pause();
-    const completed = await this.countdown(
-      operationId,
-      durationSeconds,
-      item?.name ?? itemId
-    );
+    const completed = await this.countdown(operationId, durationSeconds, item?.name ?? itemId);
 
     if (completed && !this.video.ended) {
       this.onStatusChange("Reprise de la vidéo...");
