@@ -4,13 +4,24 @@ const MAP_WIDTH = 720;
 const LANE_X = [140, 360, 580];
 const ROW_GAP = 130;
 const MAP_PADDING = 70;
-const SYMBOLS = {
+const SYMBOLS = Object.freeze({
   start: "D",
   normal: "N",
   event: "?",
   elite: "E",
+  shop: "$",
+  campfire: "F",
+  hidden: "H",
   boss: "B"
-};
+});
+
+const DIFFICULTY_LABELS = Object.freeze({
+  warmup: "Warm-up",
+  easy: "Facile",
+  normal: "Normale",
+  hard: "Difficile",
+  boss: "Boss"
+});
 
 function ensureMapStylesheet() {
   if (document.querySelector('link[data-map-styles="true"]')) {
@@ -92,6 +103,7 @@ export class MapView {
 
     for (const node of nodes) {
       const position = positions.get(node.id);
+
       if (position) {
         graph.append(this.createNode({
           node,
@@ -150,11 +162,17 @@ export class MapView {
 
     for (const node of nodes) {
       const source = positions.get(node.id);
-      if (!source) continue;
+
+      if (!source) {
+        continue;
+      }
 
       for (const targetId of node.nextNodeIds) {
         const target = positions.get(targetId);
-        if (!target) continue;
+
+        if (!target) {
+          continue;
+        }
 
         const line = document.createElementNS(namespace, "line");
         line.setAttribute("x1", String(source.x));
@@ -193,6 +211,7 @@ export class MapView {
     button.className = [
       "map-node-button",
       `map-node-${node.type}`,
+      node.difficulty ? `map-difficulty-${node.difficulty}` : "",
       current ? "is-current" : "",
       accessible ? "is-accessible" : "",
       completed ? "is-completed" : ""
@@ -201,9 +220,16 @@ export class MapView {
     button.style.left = `${position.x}px`;
     button.style.top = `${position.y}px`;
     button.disabled = !accessible;
+
+    const difficultyLabel = node.difficulty
+      ? DIFFICULTY_LABELS[node.difficulty] ?? node.difficulty
+      : null;
+    const accessibleLabel = current ? ", position actuelle" : "";
+    const difficultyText = difficultyLabel ? `, difficulté ${difficultyLabel}` : "";
+
     button.setAttribute(
       "aria-label",
-      `${node.title}${current ? ", position actuelle" : ""}`
+      `${node.title}${difficultyText}${accessibleLabel}`
     );
 
     const symbol = document.createElement("span");
@@ -215,6 +241,13 @@ export class MapView {
     label.textContent = node.title;
 
     button.append(symbol, label);
+
+    if (difficultyLabel && node.type !== "boss") {
+      const difficulty = document.createElement("span");
+      difficulty.className = "map-node-difficulty";
+      difficulty.textContent = difficultyLabel;
+      button.append(difficulty);
+    }
 
     if (accessible) {
       button.addEventListener("click", () => {
@@ -229,7 +262,10 @@ export class MapView {
     const button = wrapper.querySelector(
       `[data-node-id="${CSS.escape(nodeId)}"]`
     );
-    if (!(button instanceof HTMLElement)) return;
+
+    if (!(button instanceof HTMLElement)) {
+      return;
+    }
 
     wrapper.scrollTo({
       top: Math.max(
