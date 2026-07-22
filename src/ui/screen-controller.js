@@ -6,19 +6,23 @@ export class ScreenController {
     encounterScreen,
     eventScreen,
     rewardScreen,
+    shopScreen = document.querySelector("#shop-screen"),
+    campfireScreen = document.querySelector("#campfire-screen"),
     settingsPanel
   }) {
     this.mapScreen = mapScreen;
     this.encounterScreen = encounterScreen;
     this.eventScreen = eventScreen;
     this.rewardScreen = rewardScreen;
+    this.shopScreen = shopScreen;
+    this.campfireScreen = campfireScreen;
     this.settingsPanel = settingsPanel;
 
     this.validateElements();
   }
 
   validateElements() {
-    const elements = [
+    const requiredElements = [
       this.mapScreen,
       this.encounterScreen,
       this.eventScreen,
@@ -26,11 +30,17 @@ export class ScreenController {
       this.settingsPanel
     ];
 
-    for (const element of elements) {
+    for (const element of requiredElements) {
       if (!(element instanceof HTMLElement)) {
         throw new Error(
           "Un élément d’écran fourni est invalide."
         );
+      }
+    }
+
+    for (const optionalScreen of [this.shopScreen, this.campfireScreen]) {
+      if (optionalScreen !== null && !(optionalScreen instanceof HTMLElement)) {
+        throw new Error("Un écran de salle optionnel est invalide.");
       }
     }
   }
@@ -40,6 +50,14 @@ export class ScreenController {
     this.encounterScreen.hidden = true;
     this.eventScreen.hidden = true;
     this.rewardScreen.hidden = true;
+
+    if (this.shopScreen) {
+      this.shopScreen.hidden = true;
+    }
+
+    if (this.campfireScreen) {
+      this.campfireScreen.hidden = true;
+    }
   }
 
   showMap() {
@@ -60,6 +78,24 @@ export class ScreenController {
   showReward() {
     this.hideGameScreens();
     this.rewardScreen.hidden = false;
+  }
+
+  showShop() {
+    if (!this.shopScreen) {
+      throw new Error("L’écran de boutique est indisponible.");
+    }
+
+    this.hideGameScreens();
+    this.shopScreen.hidden = false;
+  }
+
+  showCampfire() {
+    if (!this.campfireScreen) {
+      throw new Error("L’écran de feu de camp est indisponible.");
+    }
+
+    this.hideGameScreens();
+    this.campfireScreen.hidden = false;
   }
 
   openSettings() {
