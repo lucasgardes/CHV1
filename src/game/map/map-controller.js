@@ -107,9 +107,11 @@ export class MapController {
     this.gameState.moveToNode(targetNode.id);
 
     if (targetNode.type === "shop" || targetNode.type === "campfire") {
-      window.dispatchEvent(new CustomEvent("chv:room-selected", {
-        detail: { node: targetNode }
-      }));
+      queueMicrotask(() => {
+        window.dispatchEvent(new CustomEvent("chv:room-selected", {
+          detail: { node: targetNode }
+        }));
+      });
     }
 
     return targetNode;
