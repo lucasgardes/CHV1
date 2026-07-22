@@ -1,20 +1,49 @@
 "use strict";
 
 import {
-  getMapNodeById
-} from "./map-data.js";
+  generateMap
+} from "./map-generator.js";
 
 export class MapController {
-  constructor({ gameState }) {
+  constructor({ gameState, seed } = {}) {
     if (!gameState) {
       throw new Error("L’état de partie est requis.");
     }
 
     this.gameState = gameState;
+    this.map = generateMap({ seed });
+    this.nodesById = new Map(
+      this.map.nodes.map((node) => [node.id, node])
+    );
+  }
+
+  regenerate({ seed } = {}) {
+    this.map = generateMap({ seed });
+    this.nodesById = new Map(
+      this.map.nodes.map((node) => [node.id, node])
+    );
+
+    return this.map;
+  }
+
+  getMap() {
+    return this.map;
+  }
+
+  getNodes() {
+    return [...this.map.nodes];
+  }
+
+  getRows() {
+    return this.map.rows.map((row) => [...row]);
+  }
+
+  getNodeById(nodeId) {
+    return this.nodesById.get(nodeId) ?? null;
   }
 
   getCurrentNode() {
-    return getMapNodeById(this.gameState.currentNodeId);
+    return this.getNodeById(this.gameState.currentNodeId);
   }
 
   getAccessibleNodes() {
@@ -25,18 +54,18 @@ export class MapController {
     }
 
     return currentNode.nextNodeIds
-      .map((nodeId) => getMapNodeById(nodeId))
+      .map((nodeId) => this.getNodeById(nodeId))
       .filter((node) => node !== null);
   }
 
+  isNodeAccessible(nodeId) {
+    return this.getAccessibleNodes().some((node) => node.id === nodeId);
+  }
+
   moveToNode(nodeId) {
-    const accessibleNodes = this.getAccessibleNodes();
+    const targetNode = this.getNodeById(nodeId);
 
-    const targetNode = accessibleNodes.find(
-      (node) => node.id === nodeId
-    );
-
-    if (!targetNode) {
+    if (targetNode === null || !this.isNodeAccessible(nodeId)) {
       throw new Error(
         `La case ${nodeId} n’est pas accessible.`
       );
