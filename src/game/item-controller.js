@@ -7,14 +7,11 @@ import {
   RECHARGE_TYPES
 } from "../data/items.js";
 
-import { registerItemController } from "./game-runtime.js";
-
 export class ItemController {
   constructor({ gameState }) {
     if (!gameState) throw new Error("L’état de partie est requis.");
     this.gameState = gameState;
     this.runtimeStates = new Map();
-    registerItemController(this);
   }
 
   ensureRuntimeState(itemId) {
@@ -146,7 +143,6 @@ export class ItemController {
   }
 
   getState(itemId) {
-    const state = this.ensureRuntimeState(itemId);
-    return { ...state };
+    return { ...this.ensureRuntimeState(itemId) };
   }
 }
