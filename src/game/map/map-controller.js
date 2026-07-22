@@ -12,6 +12,10 @@ export class MapController {
 
     this.gameState = gameState;
     this.map = generateMap({ seed });
+    this.rebuildNodeIndex();
+  }
+
+  rebuildNodeIndex() {
     this.nodesById = new Map(
       this.map.nodes.map((node) => [node.id, node])
     );
@@ -19,9 +23,7 @@ export class MapController {
 
   regenerate({ seed } = {}) {
     this.map = generateMap({ seed });
-    this.nodesById = new Map(
-      this.map.nodes.map((node) => [node.id, node])
-    );
+    this.rebuildNodeIndex();
 
     return this.map;
   }
@@ -48,14 +50,24 @@ export class MapController {
 
   getAccessibleNodes() {
     const currentNode = this.getCurrentNode();
+    const accessibleNodes = currentNode === null
+      ? []
+      : currentNode.nextNodeIds
+        .map((nodeId) => this.getNodeById(nodeId))
+        .filter((node) => node !== null);
 
-    if (currentNode === null) {
-      return [];
-    }
+    Object.defineProperties(accessibleNodes, {
+      mapRows: {
+        value: this.getRows(),
+        enumerable: false
+      },
+      mapNodes: {
+        value: this.getNodes(),
+        enumerable: false
+      }
+    });
 
-    return currentNode.nextNodeIds
-      .map((nodeId) => this.getNodeById(nodeId))
-      .filter((node) => node !== null);
+    return accessibleNodes;
   }
 
   isNodeAccessible(nodeId) {
