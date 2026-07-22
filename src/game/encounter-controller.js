@@ -3,6 +3,9 @@
 import {
   GAME_STATUS
 } from "./game-state.js";
+import {
+  resolveFunscriptSelection
+} from "./funscript-difficulty.js";
 
 function assertFunction(value, name) {
   if (typeof value !== "function") {
@@ -20,6 +23,7 @@ export class EncounterController {
     setFunscriptPath,
     loadFunscript,
     resetActions,
+    resolveFunscript = resolveFunscriptSelection,
     onEncounterLoaded = () => {},
     onNormalCompleted = () => {},
     onEliteCompleted = () => {},
@@ -35,6 +39,7 @@ export class EncounterController {
     assertFunction(setFunscriptPath, "setFunscriptPath");
     assertFunction(loadFunscript, "loadFunscript");
     assertFunction(resetActions, "resetActions");
+    assertFunction(resolveFunscript, "resolveFunscript");
     assertFunction(onEncounterLoaded, "onEncounterLoaded");
     assertFunction(onNormalCompleted, "onNormalCompleted");
     assertFunction(onEliteCompleted, "onEliteCompleted");
@@ -49,6 +54,7 @@ export class EncounterController {
     this.setFunscriptPath = setFunscriptPath;
     this.loadFunscript = loadFunscript;
     this.resetActions = resetActions;
+    this.resolveFunscript = resolveFunscript;
     this.onEncounterLoaded = onEncounterLoaded;
     this.onNormalCompleted = onNormalCompleted;
     this.onEliteCompleted = onEliteCompleted;
@@ -66,23 +72,35 @@ export class EncounterController {
     if (encounter === null) throw new Error(`Rencontre introuvable : ${encounterId}`);
 
     await this.stopVideoSync();
-    this.currentEncounter = encounter;
+    const funscriptSelection = this.resolveFunscript({
+      encounter,
+      gameState: this.gameState
+    });
+    const loadedEncounter = {
+      ...encounter,
+      selectedFunscriptDifficulty: funscriptSelection.difficulty,
+      requestedFunscriptDifficulty: funscriptSelection.requestedDifficulty,
+      selectedFunscriptPath: funscriptSelection.path,
+      funscriptFallbackUsed: funscriptSelection.fallbackUsed
+    };
+
+    this.currentEncounter = loadedEncounter;
     this.resetActions();
     this.video.pause();
     this.video.src = encounter.videoPath;
     this.video.load();
-    this.setFunscriptPath(encounter.funscriptPath);
+    this.setFunscriptPath(funscriptSelection.path);
     await this.loadFunscript();
     this.itemController.resetForEncounter();
-    this.onEncounterLoaded(encounter);
+    this.onEncounterLoaded(loadedEncounter, funscriptSelection);
 
     try {
       await this.video.play();
     } catch (error) {
-      this.onPlaybackFallback(encounter, error);
+      this.onPlaybackFallback(loadedEncounter, error);
     }
 
-    return encounter;
+    return loadedEncounter;
   }
 
   async complete() {
