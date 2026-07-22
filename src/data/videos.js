@@ -1,12 +1,27 @@
 "use strict";
 
+import {
+  FUNSCRIPT_DIFFICULTIES
+} from "../game/funscript-difficulty.js";
+
+const TEST_FUNSCRIPT_PATH = "../assets/funscripts/test-video.funscript";
+
+function createTestFunscripts() {
+  return Object.freeze({
+    [FUNSCRIPT_DIFFICULTIES.EASY]: TEST_FUNSCRIPT_PATH,
+    [FUNSCRIPT_DIFFICULTIES.MEDIUM]: TEST_FUNSCRIPT_PATH,
+    [FUNSCRIPT_DIFFICULTIES.HARD]: TEST_FUNSCRIPT_PATH
+  });
+}
+
 export const VIDEOS = Object.freeze([
   {
     id: "normal-001",
     title: "Rencontre normale 1",
     type: "normal",
     videoPath: "../assets/videos/test-video.mp4",
-    funscriptPath: "../assets/funscripts/test-video.funscript",
+    funscripts: createTestFunscripts(),
+    defaultFunscriptDifficulty: FUNSCRIPT_DIFFICULTIES.EASY,
     difficulty: 1,
     rewardGold: 35
   },
@@ -15,7 +30,8 @@ export const VIDEOS = Object.freeze([
     title: "Rencontre normale 2",
     type: "normal",
     videoPath: "../assets/videos/test-video.mp4",
-    funscriptPath: "../assets/funscripts/test-video.funscript",
+    funscripts: createTestFunscripts(),
+    defaultFunscriptDifficulty: FUNSCRIPT_DIFFICULTIES.MEDIUM,
     difficulty: 2,
     rewardGold: 38
   },
@@ -24,7 +40,8 @@ export const VIDEOS = Object.freeze([
     title: "Rencontre élite",
     type: "elite",
     videoPath: "../assets/videos/test-video.mp4",
-    funscriptPath: "../assets/funscripts/test-video.funscript",
+    funscripts: createTestFunscripts(),
+    defaultFunscriptDifficulty: FUNSCRIPT_DIFFICULTIES.HARD,
     difficulty: 3,
     rewardGold: 65
   },
@@ -33,14 +50,13 @@ export const VIDEOS = Object.freeze([
     title: "Boss final",
     type: "boss",
     videoPath: "../assets/videos/test-video.mp4",
-    funscriptPath: "../assets/funscripts/test-video.funscript",
+    funscripts: createTestFunscripts(),
+    defaultFunscriptDifficulty: FUNSCRIPT_DIFFICULTIES.HARD,
     difficulty: 5,
     rewardGold: 0
   }
 ]);
 
 export function getVideoById(videoId) {
-  return VIDEOS.find(
-    (video) => video.id === videoId
-  ) ?? null;
+  return VIDEOS.find((video) => video.id === videoId) ?? null;
 }
