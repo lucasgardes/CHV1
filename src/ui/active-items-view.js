@@ -24,23 +24,13 @@ export class ActiveItemsView {
       );
     }
 
-    this.activeItemStatus =
-      activeItemStatus;
-
-    this.activeItemList =
-      activeItemList;
-
-    this.onItemSelected =
-      onItemSelected;
+    this.activeItemStatus = activeItemStatus;
+    this.activeItemList = activeItemList;
+    this.onItemSelected = onItemSelected;
   }
 
-  render({
-    status,
-    items
-  }) {
-    this.activeItemStatus.textContent =
-      status;
-
+  render({ status, items }) {
+    this.activeItemStatus.textContent = status;
     this.activeItemList.replaceChildren();
 
     for (const item of items) {
@@ -49,44 +39,31 @@ export class ActiveItemsView {
   }
 
   renderItem(item) {
-    const button =
-      document.createElement("button");
+    const button = document.createElement("button");
 
     button.type = "button";
-    button.className =
-      "active-item-button";
-
-    button.textContent =
-      item.name;
-
-    button.disabled =
-      item.disabled === true;
+    button.className = "active-item-button";
+    button.dataset.itemId = item.id;
+    button.textContent = item.name;
+    button.disabled = item.disabled === true;
 
     if (item.title) {
-      button.title =
-        item.title;
+      button.title = item.title;
     }
 
-    button.addEventListener(
-      "click",
-      () => {
-        this.onItemSelected(item.id);
-      }
-    );
+    button.addEventListener("click", () => {
+      this.onItemSelected(item.id);
+    });
 
     this.activeItemList.append(button);
   }
 
   setStatus(message) {
-    this.activeItemStatus.textContent =
-      message;
+    this.activeItemStatus.textContent = message;
   }
 
   disableAll() {
-    for (
-      const button of
-      this.activeItemList.querySelectorAll("button")
-    ) {
+    for (const button of this.activeItemList.querySelectorAll("button")) {
       button.disabled = true;
     }
   }
