@@ -62,17 +62,55 @@ function showMap(gameState) {
   updateResourceDisplay(gameState);
 }
 
+function formatTimeOutStatus(remainingSeconds) {
+  return remainingSeconds > 0
+    ? `Temps mort actif : reprise dans ${remainingSeconds} seconde${remainingSeconds > 1 ? "s" : ""}.`
+    : "Reprise de la vidéo...";
+}
+
 function installTimeOutUpgradeExtension() {
   const video = getElement("round-video", HTMLVideoElement);
   const status = getElement("active-item-status");
   let pendingExtraSeconds = 0;
   let applyingExtension = false;
+  let rewritingStatus = false;
 
   window.addEventListener("chv:time-out-extra", (event) => {
     pendingExtraSeconds = Math.max(
       0,
       Number(event.detail?.extraSeconds) || 0
     );
+  });
+
+  const observer = new MutationObserver(() => {
+    if (
+      rewritingStatus ||
+      applyingExtension ||
+      pendingExtraSeconds <= 0
+    ) {
+      return;
+    }
+
+    const match = status.textContent.match(
+      /Temps mort actif : reprise dans (\d+) seconde/
+    );
+
+    if (!match) {
+      return;
+    }
+
+    const baseRemaining = Number(match[1]);
+    const displayedRemaining = baseRemaining + pendingExtraSeconds;
+
+    rewritingStatus = true;
+    status.textContent = formatTimeOutStatus(displayedRemaining);
+    rewritingStatus = false;
+  });
+
+  observer.observe(status, {
+    childList: true,
+    characterData: true,
+    subtree: true
   });
 
   video.addEventListener("play", () => {
@@ -86,21 +124,18 @@ function installTimeOutUpgradeExtension() {
     video.pause();
 
     let remaining = extraSeconds;
-    status.textContent =
-      `Temps mort + actif : ${remaining} secondes supplémentaires.`;
+    status.textContent = formatTimeOutStatus(remaining);
 
     const timer = window.setInterval(() => {
       remaining -= 1;
+      status.textContent = formatTimeOutStatus(remaining);
 
       if (remaining > 0) {
-        status.textContent =
-          `Temps mort + actif : ${remaining} seconde${remaining > 1 ? "s" : ""} supplémentaire${remaining > 1 ? "s" : ""}.`;
         return;
       }
 
       window.clearInterval(timer);
       applyingExtension = false;
-      status.textContent = "Reprise de la vidéo...";
       void video.play();
     }, 1000);
   });
