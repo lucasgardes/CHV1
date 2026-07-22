@@ -92,6 +92,21 @@ export class ItemController {
       this.ensureRuntimeState(itemId);
 
     state.available = false;
+
+    if (itemId === "time-out") {
+      const values = this.getEffectiveValues(itemId);
+      const baseDuration = getItemById(itemId)?.values?.durationSeconds ?? 30;
+      const extraSeconds = Math.max(
+        0,
+        (values?.durationSeconds ?? baseDuration) - baseDuration
+      );
+
+      if (extraSeconds > 0) {
+        window.dispatchEvent(new CustomEvent("chv:time-out-extra", {
+          detail: { extraSeconds }
+        }));
+      }
+    }
   }
 
   recharge(itemId) {
