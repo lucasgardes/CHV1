@@ -70,7 +70,12 @@ function installActiveItemHandlers(gameState, itemController) {
       const item = getItemById(itemId);
       const state = itemController.getState(itemId);
       const upgraded = gameState.isItemUpgraded(itemId);
-      button.textContent = `${item?.name ?? itemId}${upgraded ? " +" : ""} — ${getRechargeLabel(itemController, itemId)}`;
+      const nextText = `${item?.name ?? itemId}${upgraded ? " +" : ""} — ${getRechargeLabel(itemController, itemId)}`;
+
+      if (button.textContent !== nextText) {
+        button.textContent = nextText;
+      }
+
       button.disabled =
         gameState.status !== "encounter" ||
         video.paused ||
@@ -189,7 +194,7 @@ function installActiveItemHandlers(gameState, itemController) {
   }, true);
 
   const observer = new MutationObserver(refreshButtons);
-  observer.observe(itemList, { childList: true, subtree: true });
+  observer.observe(itemList, { childList: true });
   video.addEventListener("play", refreshButtons);
   video.addEventListener("pause", refreshButtons);
   video.addEventListener("ended", refreshButtons);
