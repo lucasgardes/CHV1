@@ -12,9 +12,7 @@ import {
 export class ItemController {
   constructor({ gameState }) {
     if (!gameState) {
-      throw new Error(
-        "L’état de partie est requis."
-      );
+      throw new Error("L’état de partie est requis.");
     }
 
     this.gameState = gameState;
@@ -26,7 +24,8 @@ export class ItemController {
     if (!this.runtimeStates.has(itemId)) {
       this.runtimeStates.set(itemId, {
         available: true,
-        active: false
+        active: false,
+        remainingRechargeRounds: 0
       });
     }
 
@@ -38,80 +37,96 @@ export class ItemController {
   }
 
   isAvailable(itemId) {
-    if (!this.hasItem(itemId)) {
-      return false;
-    }
-
+    if (!this.hasItem(itemId)) return false;
     const state = this.ensureRuntimeState(itemId);
     return state.available && !state.active;
   }
 
   isActive(itemId) {
-    const state = this.ensureRuntimeState(itemId);
-    return state.active;
+    return this.ensureRuntimeState(itemId).active;
   }
 
   activate(itemId) {
     if (!this.hasItem(itemId)) {
-      throw new Error(
-        `L’objet ${itemId} n’est pas possédé.`
-      );
+      throw new Error(`L’objet ${itemId} n’est pas possédé.`);
     }
 
     const state = this.ensureRuntimeState(itemId);
 
     if (!state.available) {
-      throw new Error(
-        `L’objet ${itemId} n’est pas disponible.`
-      );
+      throw new Error(`L’objet ${itemId} n’est pas disponible.`);
     }
 
     if (state.active) {
-      throw new Error(
-        `L’objet ${itemId} est déjà actif.`
-      );
+      throw new Error(`L’objet ${itemId} est déjà actif.`);
     }
 
     state.active = true;
   }
 
   finishActivation(itemId) {
-    const state = this.ensureRuntimeState(itemId);
-    state.active = false;
+    this.ensureRuntimeState(itemId).active = false;
   }
 
   consumeCharge(itemId) {
+    const item = getItemById(itemId);
     const state = this.ensureRuntimeState(itemId);
+    const values = this.getEffectiveValues(itemId);
+
     state.available = false;
+    state.remainingRechargeRounds = item?.type === "rechargeable"
+      ? Math.max(1, Number(values?.rechargeRounds) || 1)
+      : 0;
   }
 
   recharge(itemId) {
     const state = this.ensureRuntimeState(itemId);
     state.available = true;
     state.active = false;
+    state.remainingRechargeRounds = 0;
   }
 
   rechargeAll() {
     for (const itemId of this.gameState.inventory) {
-      const item = getItemById(itemId);
-
-      if (item?.type === "rechargeable") {
+      if (getItemById(itemId)?.type === "rechargeable") {
         this.recharge(itemId);
       }
     }
   }
 
+  advanceRechargeCounters({ encounterType = "normal" } = {}) {
+    const rechargedItemIds = [];
+
+    for (const itemId of this.gameState.inventory) {
+      const item = getItemById(itemId);
+      const state = this.ensureRuntimeState(itemId);
+
+      if (
+        item?.type !== "rechargeable" ||
+        state.available ||
+        state.active ||
+        state.remainingRechargeRounds <= 0
+      ) {
+        continue;
+      }
+
+      state.remainingRechargeRounds -= 1;
+
+      if (state.remainingRechargeRounds <= 0) {
+        this.recharge(itemId);
+        rechargedItemIds.push(itemId);
+      }
+    }
+
+    return {
+      encounterType,
+      rechargedItemIds
+    };
+  }
+
   resetForEncounter() {
     for (const itemId of this.gameState.inventory) {
-      switch (itemId) {
-        case "time-out":
-          this.recharge(itemId);
-          break;
-
-        default:
-          this.ensureRuntimeState(itemId);
-          break;
-      }
+      this.ensureRuntimeState(itemId);
     }
   }
 
@@ -127,7 +142,8 @@ export class ItemController {
 
     return {
       available: state.available,
-      active: state.active
+      active: state.active,
+      remainingRechargeRounds: state.remainingRechargeRounds
     };
   }
 }
