@@ -95,25 +95,37 @@
         <div class="modal-card panel"><p class="screen-kicker">Victoire</p><h2>Récompense d’élite</h2><p class="screen-description">Choisis une récompense.</p><div id="reward-choice-list" class="choice-list"></div></div>
       </section>
 
-      <section id="encounter-screen" class="game-screen encounter-screen" hidden>
-        <header class="encounter-header panel">
-          <div><p class="screen-kicker">Rencontre en cours</p><h2 id="encounter-title">Rencontre</h2></div>
-          <div class="video-information"><p id="video-status">Prêt</p><p><span id="current-time">00:00</span> / <span id="duration">00:00</span></p></div>
-        </header>
-        <div class="encounter-layout">
-          <aside class="encounter-side panel"><p class="screen-kicker">Synchronisation</p><h3>Intensité</h3><div class="fake-chart" aria-hidden="true"><span></span><span></span><span></span><span></span><span></span></div><p class="empty-state">Les données détaillées apparaîtront ici lorsque la vue funscript sera reliée à l’interface.</p></aside>
-          <div class="video-column">
-            <div class="video-container"><video id="round-video" preload="metadata">Ton ordinateur ne peut pas lire cette vidéo.</video></div>
-            <div class="controls panel">
-              <button id="backward-button" class="secondary-button" type="button">−5 secondes</button>
-              <button id="play-button" class="primary-button" type="button">Lecture</button>
-              <button id="forward-button" class="secondary-button" type="button">+5 secondes</button>
-              <button id="restart-button" class="secondary-button" type="button">Recommencer</button>
+      <section id="encounter-screen" class="game-screen encounter-screen immersive-encounter" hidden>
+        <div class="encounter-stage">
+          <div class="video-container encounter-video"><video id="round-video" preload="metadata">Ton ordinateur ne peut pas lire cette vidéo.</video></div>
+
+          <header class="encounter-hud-top">
+            <div class="encounter-identity">
+              <span class="encounter-emblem" aria-hidden="true">◆</span>
+              <div><p class="screen-kicker">Rencontre en cours</p><h2 id="encounter-title">Rencontre</h2></div>
             </div>
+            <div class="video-information"><p id="video-status">Prêt</p><p><span id="current-time">00:00</span> / <span id="duration">00:00</span></p></div>
+            <div class="encounter-device-state"><span class="connection-indicator"></span><span>Intiface</span></div>
+          </header>
+
+          <div class="encounter-hover-zone" aria-hidden="true"></div>
+          <aside class="active-items-panel encounter-item-drawer">
+            <div class="drawer-handle" aria-hidden="true"><span>›</span></div>
+            <div class="drawer-content">
+              <div class="drawer-heading"><p class="screen-kicker">Accès rapide</p><h3>Objets utilisables</h3><p id="active-item-status">Aucun objet utilisable.</p></div>
+              <div id="active-item-list" class="active-item-list"></div>
+            </div>
+          </aside>
+
+          <div class="encounter-hover-help"><span class="help-icon">i</span><span>Survole le bord gauche pour afficher les objets.</span></div>
+
+          <div class="controls encounter-controls">
+            <button id="backward-button" class="minimal-control" type="button" aria-label="Reculer de 5 secondes">−5</button>
+            <button id="play-button" class="play-control" type="button" aria-label="Lecture ou pause">▶</button>
+            <button id="forward-button" class="minimal-control" type="button" aria-label="Avancer de 5 secondes">+5</button>
+            <button id="restart-button" class="minimal-control restart-control" type="button">Recommencer</button>
           </div>
-          <aside class="encounter-side panel"><p class="screen-kicker">État de la partie</p><h3>Rencontre</h3><p class="detail-copy">Le statut de l’appareil et les informations du round restent visibles sans couvrir la vidéo.</p></aside>
         </div>
-        <section class="active-items-panel panel"><div><p class="screen-kicker">Contrôles rapides</p><h3>Objets utilisables</h3><p id="active-item-status">Aucun objet utilisable.</p></div><div id="active-item-list" class="active-item-list"></div></section>
       </section>
 
       <aside id="settings-panel" class="settings-panel" hidden>
