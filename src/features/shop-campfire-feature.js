@@ -1,7 +1,5 @@
 "use strict";
 
-import "./room-dom.js";
-
 import {
   getGameRuntime
 } from "../game/game-runtime.js";
@@ -30,18 +28,6 @@ function getElement(id, elementType = HTMLElement) {
   }
 
   return element;
-}
-
-function ensureStylesheet() {
-  if (document.querySelector('link[data-room-styles="true"]')) {
-    return;
-  }
-
-  const link = document.createElement("link");
-  link.rel = "stylesheet";
-  link.href = "./shop-campfire.css";
-  link.dataset.roomStyles = "true";
-  document.head.append(link);
 }
 
 function updateResourceDisplay(gameState) {
@@ -154,12 +140,10 @@ function installUpgradedTimeOutHandler(gameState, itemController) {
 }
 
 function initializeRooms() {
-  ensureStylesheet();
-
   const runtime = getGameRuntime();
-  const { gameState, itemController } = runtime;
+  const { gameState, mapController, itemController } = runtime;
 
-  if (!gameState || !runtime.mapController || !itemController) {
+  if (!gameState || !mapController || !itemController) {
     throw new Error(
       "Les contrôleurs principaux doivent être initialisés avant les salles."
     );
@@ -214,12 +198,8 @@ function initializeRooms() {
     }
   });
 
-  window.addEventListener("chv:room-selected", (event) => {
-    const node = event.detail?.node;
-
-    if (node) {
-      roomController.open(node);
-    }
+  mapController.setRoomSelectionHandler((node) => {
+    roomController.open(node);
   });
 }
 
