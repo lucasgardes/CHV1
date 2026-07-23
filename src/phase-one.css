@@ -8,36 +8,18 @@
   background:
     radial-gradient(circle at center, rgba(255, 255, 255, 0.98), rgba(232, 236, 242, 0.96) 48%, rgba(10, 13, 18, 0.98) 100%);
 }
-
 .phase-one-screen[hidden] { display: none; }
-
-.phase-one-card {
-  width: min(680px, 100%);
-  padding: 56px;
-  text-align: center;
-  color: #12151b;
-  background: rgba(255, 255, 255, 0.9);
-  border: 1px solid rgba(20, 24, 32, 0.18);
-  border-radius: 18px;
-  box-shadow: 0 24px 80px rgba(0, 0, 0, 0.32);
-}
-
-.phase-one-card h2 {
-  margin: 10px 0 18px;
-  font-size: clamp(2.2rem, 6vw, 4.4rem);
-  line-height: 1;
-}
-
-.phase-one-message {
-  max-width: 540px;
-  margin: 0 auto;
-  font-size: 1.12rem;
-  line-height: 1.75;
-}
-
-.phase-one-actions {
-  display: flex;
-  justify-content: center;
-  gap: 12px;
-  margin-top: 32px;
-}
+.phase-one-card { width: min(880px, 100%); padding: 48px; text-align: center; color: #12151b; background: rgba(255,255,255,.92); border: 1px solid rgba(20,24,32,.18); border-radius: 18px; box-shadow: 0 24px 80px rgba(0,0,0,.32); }
+.phase-one-card h2 { margin: 10px 0 18px; font-size: clamp(2.2rem, 6vw, 4.4rem); line-height: 1; }
+.phase-one-message { max-width: 620px; margin: 0 auto; font-size: 1.12rem; line-height: 1.75; }
+.phase-one-actions { display:flex; justify-content:center; gap:12px; margin-top:32px; }
+.blessing-choice-grid { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:14px; margin-top:30px; }
+.blessing-choice-card { display:flex; min-height:210px; flex-direction:column; justify-content:space-between; gap:14px; padding:22px; text-align:left; border:1px solid rgba(20,24,32,.2); border-radius:14px; background:rgba(255,255,255,.8); cursor:pointer; }
+.blessing-choice-card:hover:not(:disabled) { transform:translateY(-2px); box-shadow:0 12px 28px rgba(0,0,0,.14); }
+.blessing-choice-card strong { font-size:1.15rem; }
+.blessing-choice-card span { line-height:1.5; }
+.blessing-choice-card small { text-transform:uppercase; letter-spacing:.08em; opacity:.65; }
+.active-blessing-panel { display:flex; flex-direction:column; gap:5px; margin-bottom:14px; padding:12px; border:1px solid rgba(255,255,255,.18); border-radius:10px; }
+.active-blessing-panel small { text-transform:uppercase; letter-spacing:.08em; opacity:.65; }
+.active-blessing-panel span { font-size:.86rem; line-height:1.4; opacity:.82; }
+@media (max-width:760px){.blessing-choice-grid{grid-template-columns:1fr}.phase-one-card{padding:28px}.blessing-choice-card{min-height:0}}
