@@ -29,6 +29,17 @@ function ensureRunController() {
   });
 }
 
+async function processDefeat() {
+  if (globalThis.__CHV1_PHASE_ONE__?.processDefeat) {
+    return globalThis.__CHV1_PHASE_ONE__.processDefeat();
+  }
+
+  const runController = ensureRunController();
+  await runController.stopCurrentEncounter();
+  const { gameState, mapController } = getGameRuntime();
+  return new DefeatController({ gameState, mapController }).processDefeat();
+}
+
 window.addEventListener("DOMContentLoaded", () => {
   try { ensureRunController(); } catch { /* renderer may still be initializing */ }
 });
@@ -36,25 +47,22 @@ window.addEventListener("DOMContentLoaded", () => {
 if (button instanceof HTMLButtonElement) {
   button.addEventListener("click", async () => {
     if (button.disabled) return;
-    const confirmed = window.confirm("Confirmer la défaite ?\n\nLa vidéo et le funscript seront arrêtés. Une protection sera utilisée si elle est disponible, sinon une nouvelle partie commencera.");
+    const confirmed = window.confirm("Confirmer la défaite ?\n\nLa vidéo et le funscript seront arrêtés. Une protection sera utilisée si elle est disponible, sinon la boucle temporelle recommencera.");
     if (!confirmed) return;
 
     button.disabled = true;
     button.textContent = "Traitement...";
 
     try {
-      const runController = ensureRunController();
-      await runController.stopCurrentEncounter();
-      const { gameState, mapController } = getGameRuntime();
-      const result = new DefeatController({ gameState, mapController }).processDefeat();
+      const result = await processDefeat();
+      const runtime = getGameRuntime();
 
       if (result.protected) {
-        runController.syncMapDom();
-        runController.screenController.showMap();
+        runtime.runController?.syncMapDom();
+        runtime.screenController?.showMap();
         button.textContent = "Protection activée";
       } else {
-        runController.startNewRun();
-        button.textContent = "Nouvelle partie";
+        button.textContent = "Boucle relancée";
       }
 
       window.setTimeout(() => {
