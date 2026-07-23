@@ -3,6 +3,7 @@
 import { GAME_STATUS } from "./game-state.js";
 import { resolveFunscriptSelection } from "./funscript-difficulty.js";
 import { registerEncounterController } from "./runtime-access.js";
+import { ItemEffectService } from "./item-effect-service.js";
 
 function assertFunction(value, name) { if (typeof value !== "function") throw new TypeError(`${name} doit être une fonction.`); }
 function aggregateModifiers(modifiers = []) {
@@ -16,12 +17,13 @@ function aggregateModifiers(modifiers = []) {
 }
 
 export class EncounterController {
-  constructor({ gameState, itemController, video, getEncounterById, stopVideoSync, setFunscriptPath, loadFunscript, resetActions, resolveFunscript = resolveFunscriptSelection, onEncounterLoaded = () => {}, onNormalCompleted = () => {}, onEliteCompleted = () => {}, onBossCompleted = () => {}, onPlaybackFallback = () => {} }) {
+  constructor({ gameState, itemController, video, getEncounterById, stopVideoSync, setFunscriptPath, loadFunscript, resetActions, resolveFunscript = resolveFunscriptSelection, onEncounterLoaded = () => {}, onNormalCompleted = () => {}, onEliteCompleted = () => {}, onBossCompleted = () => {}, onPlaybackFallback = () => {}, random = Math.random }) {
     if (!gameState) throw new Error("L’état de partie est requis.");
     if (!itemController) throw new Error("Le contrôleur d’objets est requis.");
     if (!(video instanceof HTMLVideoElement)) throw new Error("Le lecteur vidéo est invalide.");
     for (const [value, name] of [[getEncounterById,"getEncounterById"],[stopVideoSync,"stopVideoSync"],[setFunscriptPath,"setFunscriptPath"],[loadFunscript,"loadFunscript"],[resetActions,"resetActions"],[resolveFunscript,"resolveFunscript"],[onEncounterLoaded,"onEncounterLoaded"],[onNormalCompleted,"onNormalCompleted"],[onEliteCompleted,"onEliteCompleted"],[onBossCompleted,"onBossCompleted"],[onPlaybackFallback,"onPlaybackFallback"]]) assertFunction(value, name);
     Object.assign(this, { gameState, itemController, video, getEncounterById, stopVideoSync, setFunscriptPath, loadFunscript, resetActions, resolveFunscript, onEncounterLoaded, onNormalCompleted, onEliteCompleted, onBossCompleted, onPlaybackFallback });
+    this.itemEffects = new ItemEffectService({ gameState, itemController, random });
     this.currentEncounter = null;
     registerEncounterController(this);
   }
@@ -33,10 +35,13 @@ export class EncounterController {
     if (encounter === null) throw new Error(`Rencontre introuvable : ${encounterId}`);
     await this.stopVideoSync();
     const eventModifiers = this.gameState.consumeEncounterModifiers?.() ?? [];
-    const modifierSummary = aggregateModifiers(eventModifiers);
-    if (Number.isInteger(modifierSummary.intensityShift) && modifierSummary.intensityShift !== 0) this.gameState.queueNextFunscriptDifficultyShift(modifierSummary.intensityShift);
+    const eventSummary = aggregateModifiers(eventModifiers);
+    const itemSummary = this.itemEffects.getEncounterModifiers(encounter);
+    if (Number.isInteger(eventSummary.intensityShift) && eventSummary.intensityShift !== 0) this.gameState.queueNextFunscriptDifficultyShift(eventSummary.intensityShift);
     const funscriptSelection = this.resolveFunscript({ encounter, gameState: this.gameState });
     const baseRewardGold = Number.isFinite(encounter.rewardGold) ? encounter.rewardGold : 0;
+    const rewardMultiplier = eventSummary.rewardMultiplier * itemSummary.rewardMultiplier;
+    const durationReductionSeconds = Math.max(0, itemSummary.durationReductionSeconds - itemSummary.durationExtraSeconds - eventSummary.durationSeconds);
     const loadedEncounter = {
       ...encounter,
       selectedFunscriptDifficulty: funscriptSelection.difficulty,
@@ -44,9 +49,12 @@ export class EncounterController {
       selectedFunscriptPath: funscriptSelection.path,
       funscriptFallbackUsed: funscriptSelection.fallbackUsed,
       eventModifiers,
-      durationAdjustmentSeconds: modifierSummary.durationSeconds,
-      hideInterfaceSeconds: modifierSummary.hideInterfaceSeconds,
-      effectiveRewardGold: Math.max(0, Math.round((baseRewardGold + modifierSummary.rewardGoldFlat) * modifierSummary.rewardMultiplier))
+      itemModifiers: itemSummary,
+      durationAdjustmentSeconds: eventSummary.durationSeconds + itemSummary.durationExtraSeconds - itemSummary.durationReductionSeconds,
+      hideInterfaceSeconds: eventSummary.hideInterfaceSeconds,
+      activeItemsDisabled: itemSummary.activeItemsDisabled,
+      intensityMultiplier: itemSummary.intensityMultiplier,
+      effectiveRewardGold: Math.max(0, Math.round((baseRewardGold + eventSummary.rewardGoldFlat + itemSummary.possessedBatteryGoldBonus) * rewardMultiplier))
     };
     this.currentEncounter = loadedEncounter;
     this.resetActions();
@@ -56,6 +64,15 @@ export class EncounterController {
     this.setFunscriptPath(funscriptSelection.path);
     await this.loadFunscript();
     this.itemController.resetForEncounter();
+    if (itemSummary.activeItemsDisabled) this.itemController.setEncounterLock?.(true);
+    else this.itemController.setEncounterLock?.(false);
+    if (durationReductionSeconds > 0) {
+      const applyReduction = () => {
+        if (Number.isFinite(this.video.duration)) this.video.currentTime = Math.min(durationReductionSeconds, Math.max(0, this.video.duration - 0.1));
+      };
+      if (this.video.readyState >= 1) applyReduction();
+      else this.video.addEventListener("loadedmetadata", applyReduction, { once:true });
+    }
     this.onEncounterLoaded(loadedEncounter, funscriptSelection);
     try { await this.video.play(); } catch (error) { this.onPlaybackFallback(loadedEncounter, error); }
     return loadedEncounter;
@@ -69,6 +86,7 @@ export class EncounterController {
     const rewardGold = Number.isFinite(this.currentEncounter?.effectiveRewardGold) ? this.currentEncounter.effectiveRewardGold : (Number.isFinite(encounter.rewardGold) ? encounter.rewardGold : 0);
     this.gameState.completeCurrentNode();
     this.currentEncounter = null;
+    this.itemController.setEncounterLock?.(false);
     const rechargeResult = this.itemController.advanceRechargeCounters({ encounterType: encounter.type });
     this.gameState.advanceDisabledItems?.();
     if (encounter.type === "boss") {
