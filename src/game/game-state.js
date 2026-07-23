@@ -16,6 +16,20 @@ function normalizeModifier(modifier = {}) {
   };
 }
 
+function createItemRunState() {
+  return {
+    metronomeStreak: 0,
+    rescueUsedInEncounter: false,
+    doubleCommandUsed: false,
+    doubleCommandPendingItemId: null,
+    fastPathRows: [],
+    recyclerReady: true,
+    directorChoice: null,
+    utilitySlotsUsed: [],
+    encounterHistory: []
+  };
+}
+
 export class GameState {
   constructor() { this.reset(); registerGameState(this); }
   reset() {
@@ -24,10 +38,13 @@ export class GameState {
     this.currentEncounter = null; this.nextFunscriptDifficultyShift = 0; this.nextEncounterProtectionArmed = false;
     this.seenEventIds = []; this.pendingEncounterModifiers = []; this.disabledItems = {}; this.cobayeRelations = {};
     this.eventFlags = {}; this.runFlags = {}; this.nextShopPriceMultiplier = 1; this.nextEliteRareChanceBonus = 0;
+    this.itemRunState = createItemRunState();
   }
   startRun(startNodeId = "start") { this.reset(); this.status = GAME_STATUS.MAP; this.currentNodeId = startNodeId; }
   setStatus(status) { if (!Object.values(GAME_STATUS).includes(status)) throw new Error(`Statut de partie invalide : ${status}`); this.status = status; }
   setCurrentEncounter(encounter) { this.currentEncounter = encounter; }
+  recordEncounterCheckpoint(entry) { if (entry) this.itemRunState.encounterHistory.push({ ...entry }); }
+  getEncounterHistory() { return this.itemRunState.encounterHistory.map((entry) => ({ ...entry })); }
   armNextEncounterProtection() { this.nextEncounterProtectionArmed = true; }
   consumeNextEncounterProtection() { const armed = this.nextEncounterProtectionArmed; this.nextEncounterProtectionArmed = false; return armed; }
   queueNextFunscriptDifficultyShift(amount) { if (!Number.isInteger(amount) || amount === 0) throw new Error("Le changement de difficulté doit être un entier non nul."); this.nextFunscriptDifficultyShift = Math.max(-2, Math.min(2, this.nextFunscriptDifficultyShift + amount)); }
