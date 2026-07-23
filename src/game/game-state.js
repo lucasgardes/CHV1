@@ -34,6 +34,7 @@ export class GameState {
   constructor() { this.reset(); registerGameState(this); }
   reset() {
     this.status = GAME_STATUS.MENU; this.gold = 50; this.inventory = []; this.upgradedItemIds = [];
+    this.totalGoldEarned = 0; this.totalGoldSpent = 0; this.totalGoldLost = 0; this.elitesDefeated = 0;
     this.consumedDefeatProtectionIds = []; this.currentNodeId = null; this.completedNodeIds = [];
     this.currentEncounter = null; this.nextFunscriptDifficultyShift = 0; this.nextEncounterProtectionArmed = false;
     this.seenEventIds = []; this.pendingEncounterModifiers = []; this.disabledItems = {}; this.cobayeRelations = {};
@@ -68,9 +69,9 @@ export class GameState {
   consumeNextEliteRareChanceBonus() { const value = this.nextEliteRareChanceBonus; this.nextEliteRareChanceBonus = 0; return value; }
   completeCurrentNode() { if (this.currentNodeId !== null && !this.completedNodeIds.includes(this.currentNodeId)) this.completedNodeIds.push(this.currentNodeId); }
   moveToNode(nodeId) { if (typeof nodeId !== "string" || nodeId.trim() === "") throw new Error("L’identifiant de la case est invalide."); this.currentNodeId = nodeId; }
-  addGold(amount) { if (!Number.isFinite(amount) || amount < 0) throw new Error("La quantité d’or ajoutée est invalide."); this.gold += amount; }
-  spendGold(amount) { if (!Number.isFinite(amount) || amount < 0) throw new Error("La quantité d’or dépensée est invalide."); if (this.gold < amount) return false; this.gold -= amount; return true; }
-  loseGold(amount) { if (!Number.isFinite(amount) || amount < 0) throw new Error("La quantité d’or perdue est invalide."); const lost = Math.min(this.gold, amount); this.gold -= lost; return lost; }
+  addGold(amount) { if (!Number.isFinite(amount) || amount < 0) throw new Error("La quantité d’or ajoutée est invalide."); this.gold += amount; this.totalGoldEarned += amount; }
+  spendGold(amount) { if (!Number.isFinite(amount) || amount < 0) throw new Error("La quantité d’or dépensée est invalide."); if (this.gold < amount) return false; this.gold -= amount; this.totalGoldSpent += amount; return true; }
+  loseGold(amount) { if (!Number.isFinite(amount) || amount < 0) throw new Error("La quantité d’or perdue est invalide."); const lost = Math.min(this.gold, amount); this.gold -= lost; this.totalGoldLost += lost; return lost; }
   hasItem(itemId) { return this.inventory.includes(itemId); }
   addItem(itemId) { if (this.hasItem(itemId)) return false; this.inventory.push(itemId); return true; }
   removeItem(itemId) { const index = this.inventory.indexOf(itemId); if (index < 0) return false; this.inventory.splice(index, 1); this.upgradedItemIds = this.upgradedItemIds.filter((id) => id !== itemId); delete this.disabledItems[itemId]; return true; }
