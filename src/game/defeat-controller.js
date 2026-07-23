@@ -31,6 +31,7 @@ export class DefeatController {
     else if (protection.consumable) this.gameState.removeItem(protection.id);
     else this.gameState.consumeDefeatProtection(protection.id);
   }
+  values(itemId, fallback) { return this.itemController?.getEffectiveValues(itemId) ?? fallback; }
   processDefeat() {
     const protection = this.findProtection();
     if (!protection) {
@@ -40,24 +41,24 @@ export class DefeatController {
     this.consumeProtection(protection);
     const upgraded = this.gameState.isItemUpgraded(protection.id);
     if (protection.id === "second-chance") {
-      const pauseSeconds = Number(this.itemController?.getEffectiveValues("second-chance")?.pauseSeconds) || (upgraded ? 10 : 0);
+      const pauseSeconds = Number(this.values("second-chance", { pauseSeconds:upgraded ? 10 : 0 }).pauseSeconds) || 0;
       this.gameState.setStatus(GAME_STATUS.ENCOUNTER);
       return { protected:true, protectionId:protection.id, action:"restart-current-encounter", pauseSeconds, returnNodeId:null, restartRun:false };
     }
     if (protection.id === "mini-checkpoint") {
-      const rewindRounds = Number(this.itemController?.getEffectiveValues("mini-checkpoint")?.rewindRounds) || (upgraded ? 1 : 2);
+      const rewindRounds = Number(this.values("mini-checkpoint", { rewindRounds:upgraded ? 1 : 2 }).rewindRounds) || (upgraded ? 1 : 2);
       this.gameState.setStatus(GAME_STATUS.ENCOUNTER);
       return { protected:true, protectionId:protection.id, action:"rewind-current-encounter", rewindRounds, returnNodeId:null, restartRun:false };
     }
     if (protection.id === "delayed-protection") {
-      const rewardMultiplier = Number(this.itemController?.getEffectiveValues("delayed-protection")?.rewardMultiplier) || 0;
+      const rewardMultiplier = Number(this.values("delayed-protection", { rewardMultiplier:upgraded ? .5 : 0 }).rewardMultiplier) || 0;
       const node = this.mapController.getCurrentNode();
       const reward = Math.max(0, Math.round((Number(node?.rewardGold) || 0) * rewardMultiplier));
       if (reward) this.gameState.addGold(reward);
       this.gameState.completeCurrentNode(); this.gameState.setCurrentEncounter(null); this.gameState.setStatus(GAME_STATUS.MAP);
       return { protected:true, protectionId:protection.id, action:"complete-encounter", rewardMultiplier, reward, returnNodeId:this.gameState.currentNodeId, restartRun:false };
     }
-    const pauseSeconds = Number(this.itemController?.getEffectiveValues("last-stand")?.pauseSeconds) || 0;
+    const pauseSeconds = Number(this.values("last-stand", { pauseSeconds:upgraded ? 10 : 0 }).pauseSeconds) || 0;
     const returnNodeId = this.findPreviousNodeId(1);
     this.gameState.setCurrentEncounter(null); this.gameState.moveToNode(returnNodeId); this.gameState.setStatus(GAME_STATUS.MAP);
     return { protected:true, protectionId:protection.id, action:"survive", pauseSeconds, returnNodeId, restartRun:false };
