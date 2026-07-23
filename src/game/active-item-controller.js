@@ -1,6 +1,6 @@
 "use strict";
 
-import { getItemById, RECHARGE_TYPES } from "../data/items.js";
+import { getItemById, ITEM_TYPES, RECHARGE_TYPES } from "../data/items.js";
 import { getGameRuntime } from "./runtime-access.js";
 
 const SUPPORTED_EFFECTS = new Set([
@@ -8,6 +8,7 @@ const SUPPORTED_EFFECTS = new Set([
   "arm-next-encounter-protection", "skip-normal-node", "open-shortcut", "split-encounter",
   "leave-current-room", "intensity-multiplier", "mirror-intensity"
 ]);
+const RESCUE_EFFECTS = new Set(["abort-encounter", "arm-next-encounter-protection", "open-shortcut", "leave-current-room"]);
 
 function defaultWait(milliseconds) { return new Promise((resolve) => window.setTimeout(resolve, milliseconds)); }
 
@@ -18,18 +19,43 @@ export class ActiveItemController {
     if (!(video instanceof HTMLVideoElement)) throw new Error("Le lecteur vidéo est invalide.");
     if (typeof wait !== "function") throw new TypeError("wait doit être une fonction.");
     Object.assign(this, { gameState, itemController, video, wait, onStateChange, onStatusChange });
-    this.activeOperation = null; this.operationId = 0;
+    this.activeOperation = null;
+    this.operationId = 0;
+  }
+
+  state() {
+    if (!this.gameState.itemRunState) this.gameState.itemRunState = {};
+    return this.gameState.itemRunState;
   }
 
   isBusy() { return this.activeOperation !== null; }
   supportsItem(itemId) { return SUPPORTED_EFFECTS.has(getItemById(itemId)?.effect?.type); }
-  canUse(itemId) { return this.supportsItem(itemId) && this.gameState.status === "encounter" && !this.video.ended && !this.isBusy() && this.itemController.isAvailable(itemId); }
+
+  getActiveCapacity() {
+    const extra = this.gameState.hasItem("utility-belt") ? Math.max(0, Number(this.itemController.getEffectiveValues("utility-belt")?.slots) || 0) : 0;
+    return 3 + extra;
+  }
+
+  getEquippedActiveItemIds() {
+    const activeItems = this.gameState.inventory.filter((itemId) => {
+      const item = getItemById(itemId);
+      return item && [ITEM_TYPES.CONSUMABLE, ITEM_TYPES.RECHARGEABLE].includes(item.type);
+    });
+    return activeItems.slice(0, this.getActiveCapacity());
+  }
+
+  isEquipped(itemId) { return this.getEquippedActiveItemIds().includes(itemId); }
+  canUse(itemId) { return this.supportsItem(itemId) && this.isEquipped(itemId) && this.gameState.status === "encounter" && !this.video.ended && !this.isBusy() && this.itemController.isAvailable(itemId); }
 
   getItemModel(itemId) {
-    const item = getItemById(itemId); const state = this.itemController.getState(itemId); const recharge = this.itemController.getEffectiveRecharge(itemId);
-    const upgraded = this.gameState.isItemUpgraded(itemId); const supported = this.supportsItem(itemId);
+    const item = getItemById(itemId);
+    const state = this.itemController.getState(itemId);
+    const recharge = this.itemController.getEffectiveRecharge(itemId);
+    const upgraded = this.gameState.isItemUpgraded(itemId);
+    const supported = this.supportsItem(itemId);
     let statusLabel = supported ? "disponible" : "mécanique en attente";
-    if (state.encounterLocked) statusLabel = "bloqué pendant cette rencontre";
+    if (!this.isEquipped(itemId)) statusLabel = `hors ceinture (${this.getActiveCapacity()} emplacements)`;
+    else if (state.encounterLocked) statusLabel = "bloqué pendant cette rencontre";
     else if (state.active) statusLabel = "actif";
     else if (!state.available && recharge?.type === RECHARGE_TYPES.ELITE) statusLabel = "recharge après un élite";
     else if (!state.available && recharge?.type === RECHARGE_TYPES.ONCE_PER_RUN) statusLabel = "déjà utilisé cette partie";
@@ -37,11 +63,51 @@ export class ActiveItemController {
     return { id:itemId, name:`${item?.name ?? itemId}${upgraded ? " +" : ""}`, upgraded, available:state.available, active:state.active, remainingRechargeRounds:state.remainingRechargeRounds, statusLabel, disabled:!this.canUse(itemId), title:supported ? (item?.description ?? "") : "Cet effet dépend d’une mécanique encore en cours d’intégration." };
   }
 
+  shouldUseFreeDoubleCommand(itemId) {
+    const state = this.state();
+    if (!this.gameState.hasItem("double-command") || state.doubleCommandUsed) return false;
+    const pending = state.doubleCommandPendingItemId;
+    if (!pending) return false;
+    const consecutive = this.itemController.getEffectiveValues("double-command")?.mustBeConsecutive !== false;
+    return pending === itemId && (consecutive || state.doubleCommandPendingItemId === itemId);
+  }
+
+  armDoubleCommand(itemId) {
+    const state = this.state();
+    if (!this.gameState.hasItem("double-command") || state.doubleCommandUsed || state.doubleCommandPendingItemId) return;
+    state.doubleCommandPendingItemId = itemId;
+  }
+
+  clearNonConsecutiveDoubleCommand(itemId) {
+    const state = this.state();
+    if (!state.doubleCommandPendingItemId || state.doubleCommandPendingItemId === itemId) return;
+    if (this.itemController.getEffectiveValues("double-command")?.mustBeConsecutive !== false) state.doubleCommandPendingItemId = null;
+  }
+
+  markRescueUse(item) {
+    if (!RESCUE_EFFECTS.has(item.effect.type)) return;
+    const state = this.state();
+    state.rescueUsedInEncounter = true;
+    state.metronomeStreak = 0;
+  }
+
   async use(itemId) {
     if (!this.canUse(itemId)) throw new Error(`L’objet ${itemId} ne peut pas être utilisé maintenant.`);
-    const item = getItemById(itemId); const currentOperationId = ++this.operationId;
+    const item = getItemById(itemId);
+    const currentOperationId = ++this.operationId;
+    const freeRepeat = this.shouldUseFreeDoubleCommand(itemId);
+    this.clearNonConsecutiveDoubleCommand(itemId);
     this.activeOperation = { id:currentOperationId, itemId, cancelled:false, previousOpacity:this.video.style.opacity, previousMuted:this.video.muted, previousPlaybackRate:this.video.playbackRate };
-    this.itemController.activate(itemId); this.itemController.consumeCharge(itemId); this.onStateChange();
+    this.itemController.activate(itemId);
+    if (!freeRepeat) this.itemController.consumeCharge(itemId);
+    else {
+      const state = this.state();
+      state.doubleCommandUsed = true;
+      state.doubleCommandPendingItemId = null;
+      this.onStatusChange("Double commande : seconde utilisation gratuite.");
+    }
+    this.markRescueUse(item);
+    this.onStateChange();
     try {
       switch (item.effect.type) {
         case "pause-video": await this.runPauseEffect(itemId, currentOperationId); break;
@@ -58,8 +124,10 @@ export class ActiveItemController {
         case "mirror-intensity": this.runMirrorEffect(itemId); break;
         default: throw new Error(`Effet actif inconnu : ${item.effect.type}`);
       }
+      if (!freeRepeat) this.armDoubleCommand(itemId);
     } finally {
-      this.restoreVideoState(currentOperationId); this.itemController.finishActivation(itemId);
+      this.restoreVideoState(currentOperationId);
+      this.itemController.finishActivation(itemId);
       if (this.activeOperation?.id === currentOperationId) this.activeOperation = null;
       this.onStateChange();
     }
@@ -69,7 +137,8 @@ export class ActiveItemController {
   async countdown(operationId, durationSeconds, label) {
     for (let remaining = durationSeconds; remaining > 0; remaining -= 1) {
       if (!this.isOperationValid(operationId)) return false;
-      this.onStatusChange(`${label} actif : ${remaining} seconde${remaining > 1 ? "s" : ""}.`); await this.wait(1000);
+      this.onStatusChange(`${label} actif : ${remaining} seconde${remaining > 1 ? "s" : ""}.`);
+      await this.wait(1000);
     }
     return this.isOperationValid(operationId);
   }
