@@ -7,8 +7,7 @@ export class MapController {
   constructor({ gameState, seed } = {}) {
     if (!gameState) throw new Error("L’état de partie est requis.");
     this.gameState = gameState;
-    const resumeSeed = gameState.peekResumeSnapshot?.()?.mapSeed;
-    this.setMap(generateMap({ seed: seed ?? resumeSeed }));
+    this.setMap(generateMap({ seed }));
     registerMapController(this);
   }
   setMap(map) { this.map = map; this.nodesById = new Map(map.nodes.map((node) => [node.id, node])); }
