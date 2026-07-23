@@ -1,5 +1,6 @@
 "use strict";
 
+import { EVENTS } from "./data/events.js";
 import { getGameRuntime } from "./game/runtime-access.js";
 import { DefeatController } from "./game/defeat-controller.js";
 import { LocalSaveService } from "./game/local-save.js";
@@ -27,6 +28,14 @@ function showMap(runtime) {
   });
 }
 
+function distributeEvents(runtime) {
+  const eventNodes = runtime.mapController.getMap().nodes.filter((node) => node.type === "event");
+  const pool = [...EVENTS].sort(() => Math.random() - 0.5);
+  eventNodes.forEach((node, index) => {
+    node.eventId = pool[index % pool.length].id;
+  });
+}
+
 function syncHiddenEncounter(runtime) {
   if (!runtime.gameState || !runtime.mapController) return null;
   const canReveal = runtime.gameState.hasItem("last-act-key") || runtime.gameState.hasItem("scout");
@@ -50,6 +59,7 @@ function handleTransition(runtime, transition) {
       onContinue() {
         phaseOneController.restartAfterLoop();
         bossEndingHandled = false;
+        distributeEvents(runtime);
         showMap(runtime);
       }
     });
@@ -61,6 +71,7 @@ function handleTransition(runtime, transition) {
       onRestart() {
         phaseOneController.startRun();
         bossEndingHandled = false;
+        distributeEvents(runtime);
         showMap(runtime);
       }
     });
@@ -69,7 +80,7 @@ function handleTransition(runtime, transition) {
 
 function initialize() {
   const runtime = getGameRuntime();
-  if (!runtime.gameState || !runtime.mapController || !runtime.itemController || !runtime.screenController) {
+  if (!runtime.gameState || !runtime.mapController || !runtime.itemController || !runtime.screenController || !runtime.encounterController) {
     window.setTimeout(initialize, 100);
     return;
   }
@@ -98,6 +109,7 @@ function initialize() {
     syncHiddenEncounter: () => syncHiddenEncounter(runtime)
   };
 
+  distributeEvents(runtime);
   syncHiddenEncounter(runtime);
 
   const mapScreen = document.getElementById("map-screen");
