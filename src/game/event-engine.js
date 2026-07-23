@@ -22,18 +22,41 @@ export class EventEngine {
     this.categoryWeights = { ...EVENT_CATEGORY_WEIGHTS, ...categoryWeights };
   }
 
-  getAvailableEvents() {
-    return this.events.filter((event) => !this.gameState.hasSeenEvent(event.id));
+  getAvailableEvents(excludedIds = []) {
+    return this.events.filter((event) => !this.gameState.hasSeenEvent(event.id) && !excludedIds.includes(event.id));
   }
 
-  draw({ category = null } = {}) {
-    let available = this.getAvailableEvents();
+  selectFromPool(available, category = null) {
     if (!available.length) return null;
     const categories = [...new Set(available.map((event) => event.category ?? "neutral"))];
     const selectedCategory = category ?? weightedPick(categories.map((value) => ({ value, weight: this.categoryWeights[value] ?? 0 })), this.random);
     const matching = available.filter((event) => (event.category ?? "neutral") === selectedCategory);
-    if (matching.length) available = matching;
-    const event = available[Math.floor(this.random() * available.length)] ?? null;
+    const pool = matching.length ? matching : available;
+    return pool[Math.floor(this.random() * pool.length)] ?? null;
+  }
+
+  preview({ category = null, excludedIds = [] } = {}) {
+    return this.selectFromPool(this.getAvailableEvents(excludedIds), category);
+  }
+
+  draw({ category = null, excludedIds = [] } = {}) {
+    const event = this.preview({ category, excludedIds });
+    if (event) this.gameState.markEventSeen(event.id);
+    return event;
+  }
+
+  previewMany(count = 2, options = {}) {
+    const selected = [];
+    for (let index = 0; index < count; index += 1) {
+      const event = this.preview({ ...options, excludedIds:[...(options.excludedIds ?? []), ...selected.map((entry) => entry.id)] });
+      if (!event) break;
+      selected.push(event);
+    }
+    return selected;
+  }
+
+  commit(eventId) {
+    const event = this.events.find((entry) => entry.id === eventId) ?? null;
     if (event) this.gameState.markEventSeen(event.id);
     return event;
   }
@@ -44,7 +67,7 @@ export class EventEngine {
       if (!event) return null;
       node.eventId = event.id;
       node.eventCategory = event.category ?? "neutral";
-      return { nodeId: node.id, eventId: event.id };
+      return { nodeId:node.id, eventId:event.id };
     }).filter(Boolean);
   }
 }
