@@ -1,5 +1,6 @@
 "use strict";
 
+import "./archive-panel-bootstrap.js";
 import { EVENTS } from "./data/events.js";
 import { getGameRuntime } from "./game/runtime-access.js";
 import { DefeatController } from "./game/defeat-controller.js";
