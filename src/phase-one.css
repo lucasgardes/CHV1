@@ -1,0 +1,43 @@
+.phase-one-screen {
+  position: fixed;
+  inset: 0;
+  z-index: 70;
+  display: grid;
+  place-items: center;
+  padding: 32px;
+  background:
+    radial-gradient(circle at center, rgba(255, 255, 255, 0.98), rgba(232, 236, 242, 0.96) 48%, rgba(10, 13, 18, 0.98) 100%);
+}
+
+.phase-one-screen[hidden] { display: none; }
+
+.phase-one-card {
+  width: min(680px, 100%);
+  padding: 56px;
+  text-align: center;
+  color: #12151b;
+  background: rgba(255, 255, 255, 0.9);
+  border: 1px solid rgba(20, 24, 32, 0.18);
+  border-radius: 18px;
+  box-shadow: 0 24px 80px rgba(0, 0, 0, 0.32);
+}
+
+.phase-one-card h2 {
+  margin: 10px 0 18px;
+  font-size: clamp(2.2rem, 6vw, 4.4rem);
+  line-height: 1;
+}
+
+.phase-one-message {
+  max-width: 540px;
+  margin: 0 auto;
+  font-size: 1.12rem;
+  line-height: 1.75;
+}
+
+.phase-one-actions {
+  display: flex;
+  justify-content: center;
+  gap: 12px;
+  margin-top: 32px;
+}
