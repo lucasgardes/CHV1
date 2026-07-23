@@ -12,11 +12,11 @@ export class RewardView {
     this.currentBundle = null;
   }
 
-  render({ goldAmount = 0, item = null } = {}) {
+  render({ goldAmount = 0 } = {}) {
     const runtime = getGameRuntime();
     const context = runtime.gameState?.consumeRunFlag?.("pending-elite-reward-context", null);
-    const encounter = context?.encounter ?? { difficulty: 2, rewardGold: goldAmount };
-    const service = new EliteRewardService({ gameState: runtime.gameState, itemController: runtime.itemController });
+    const encounter = context?.encounter ?? { difficulty:2, rewardGold:goldAmount };
+    const service = new EliteRewardService({ gameState:runtime.gameState, itemController:runtime.itemController });
     this.currentBundle = service.createBundle(encounter);
     this.rewardChoiceList.replaceChildren();
 
@@ -38,10 +38,10 @@ export class RewardView {
     collectButton.textContent = "Récupérer les deux récompenses";
     collectButton.addEventListener("click", () => {
       this.disableChoices();
-      const applied = service.applyBundle(this.currentBundle);
+      const applied = service.applyBundle(this.currentBundle, { applyGold:false });
       const gold = applied.filter((reward) => reward.type === "gold").reduce((sum, reward) => sum + reward.amount, 0);
       const items = applied.filter((reward) => reward.type === "item").map((reward) => reward.item?.name ?? reward.itemId);
-      this.onRewardSelected({ type:"gold", amount:0, bundleApplied:true, summary:{ gold, items } });
+      this.onRewardSelected({ type:"gold", amount:gold, bundleApplied:true, summary:{ gold, items } });
     });
     this.rewardChoiceList.append(collectButton);
   }
@@ -50,16 +50,16 @@ export class RewardView {
     const card = document.createElement("article");
     card.className = "reward-choice-button reward-card";
     if (reward.type === "gold") {
-      card.innerHTML = `<strong>${reward.amount} or</strong><span>Récompense économique</span>`;
-      return card;
+      const title=document.createElement("strong"); title.textContent=`${reward.amount} or`;
+      const detail=document.createElement("span"); detail.textContent="Récompense économique";
+      card.append(title,detail); return card;
     }
-    const rarity = reward.item?.rarity === "rare" ? "Rare" : reward.item?.rarity === "cursed" ? "Maudit" : "Commun";
-    const title = document.createElement("strong"); title.textContent = reward.item?.name ?? reward.itemId;
-    const description = document.createElement("span"); description.textContent = `${rarity} — ${reward.item?.description ?? "Objet obtenu"}`;
-    card.append(title, description);
-    return card;
+    const rarity=reward.item?.rarity==="rare"?"Rare":reward.item?.rarity==="cursed"?"Maudit":"Commun";
+    const title=document.createElement("strong"); title.textContent=reward.item?.name??reward.itemId;
+    const description=document.createElement("span"); description.textContent=`${rarity} — ${reward.item?.description??"Objet obtenu"}`;
+    card.append(title,description); return card;
   }
 
-  disableChoices() { for (const button of this.rewardChoiceList.querySelectorAll("button")) button.disabled = true; }
-  enableChoices() { for (const button of this.rewardChoiceList.querySelectorAll("button")) button.disabled = false; }
+  disableChoices(){for(const button of this.rewardChoiceList.querySelectorAll("button"))button.disabled=true;}
+  enableChoices(){for(const button of this.rewardChoiceList.querySelectorAll("button"))button.disabled=false;}
 }
