@@ -3,7 +3,7 @@
 import { GAME_STATUS } from "./game-state.js";
 import { resolveFunscriptSelection } from "./funscript-difficulty.js";
 import { registerEncounterController } from "./runtime-access.js";
-import { ItemEffectService } from "./item-effect-service.js";
+import { VIDEOS } from "../data/videos.js";
 
 function assertFunction(value, name) { if (typeof value !== "function") throw new TypeError(`${name} doit être une fonction.`); }
 function aggregateModifiers(modifiers = []) {
@@ -16,32 +16,70 @@ function aggregateModifiers(modifiers = []) {
   }), { durationSeconds:0, rewardGoldFlat:0, rewardMultiplier:1, intensityShift:0, hideInterfaceSeconds:0 });
 }
 
+function defaultChoice(message) {
+  return typeof globalThis.confirm === "function" ? globalThis.confirm(message) : false;
+}
+
 export class EncounterController {
-  constructor({ gameState, itemController, video, getEncounterById, stopVideoSync, setFunscriptPath, loadFunscript, resetActions, resolveFunscript = resolveFunscriptSelection, onEncounterLoaded = () => {}, onNormalCompleted = () => {}, onEliteCompleted = () => {}, onBossCompleted = () => {}, onPlaybackFallback = () => {}, random = Math.random }) {
+  constructor({ gameState, itemController, video, getEncounterById, stopVideoSync, setFunscriptPath, loadFunscript, resetActions, resolveFunscript = resolveFunscriptSelection, chooseDirectorVideo = null, chooseDoubleBet = null, onEncounterLoaded = () => {}, onNormalCompleted = () => {}, onEliteCompleted = () => {}, onBossCompleted = () => {}, onPlaybackFallback = () => {} }) {
     if (!gameState) throw new Error("L’état de partie est requis.");
     if (!itemController) throw new Error("Le contrôleur d’objets est requis.");
     if (!(video instanceof HTMLVideoElement)) throw new Error("Le lecteur vidéo est invalide.");
     for (const [value, name] of [[getEncounterById,"getEncounterById"],[stopVideoSync,"stopVideoSync"],[setFunscriptPath,"setFunscriptPath"],[loadFunscript,"loadFunscript"],[resetActions,"resetActions"],[resolveFunscript,"resolveFunscript"],[onEncounterLoaded,"onEncounterLoaded"],[onNormalCompleted,"onNormalCompleted"],[onEliteCompleted,"onEliteCompleted"],[onBossCompleted,"onBossCompleted"],[onPlaybackFallback,"onPlaybackFallback"]]) assertFunction(value, name);
     Object.assign(this, { gameState, itemController, video, getEncounterById, stopVideoSync, setFunscriptPath, loadFunscript, resetActions, resolveFunscript, onEncounterLoaded, onNormalCompleted, onEliteCompleted, onBossCompleted, onPlaybackFallback });
-    this.itemEffects = new ItemEffectService({ gameState, itemController, random });
+    this.chooseDirectorVideo = chooseDirectorVideo;
+    this.chooseDoubleBet = chooseDoubleBet;
     this.currentEncounter = null;
     registerEncounterController(this);
   }
 
   getCurrentEncounter() { return this.currentEncounter; }
 
+  resolveDirectorChoice(encounter) {
+    if (!this.gameState.hasItem("director-eye")) return encounter;
+    const alternatives = VIDEOS.filter((video) => video.type === encounter.type && video.id !== encounter.id);
+    if (!alternatives.length) return encounter;
+    const alternate = alternatives[Math.floor(Math.random() * alternatives.length)];
+    const showDetails = this.gameState.isItemUpgraded("director-eye");
+    let useAlternate = false;
+    if (typeof this.chooseDirectorVideo === "function") useAlternate = this.chooseDirectorVideo({ current: encounter, alternate, showDetails }) === alternate.id;
+    else {
+      const detail = showDetails ? `\n\nActuelle : difficulté ${encounter.difficulty ?? "?"}\nAlternative : difficulté ${alternate.difficulty ?? "?"}` : "";
+      useAlternate = defaultChoice(`Œil du réalisateur : choisir la vidéo alternative « ${alternate.title} » ?${detail}`);
+    }
+    return useAlternate ? alternate : encounter;
+  }
+
+  resolveDoubleBet() {
+    if (!this.gameState.hasItem("double-bet")) return { accepted:false, rewardMultiplier:1, difficultyShift:0 };
+    const values = this.itemController.getEffectiveValues("double-bet") ?? {};
+    const accepted = typeof this.chooseDoubleBet === "function"
+      ? Boolean(this.chooseDoubleBet(values))
+      : defaultChoice("Double mise : augmenter la difficulté de cette rencontre pour doubler sa récompense ?");
+    return { accepted, rewardMultiplier: accepted ? (Number(values.rewardMultiplier) || 2) : 1, difficultyShift: accepted ? 1 : 0 };
+  }
+
+  getMetronomeMultiplier() {
+    if (!this.gameState.hasItem("metronome")) return 1;
+    const state = this.gameState.itemRunState ?? (this.gameState.itemRunState = { metronomeStreak:0, rescueUsedInEncounter:false });
+    if (state.rescueUsedInEncounter) { state.metronomeStreak = 0; return 1; }
+    state.metronomeStreak = (state.metronomeStreak ?? 0) + 1;
+    const values = this.itemController.getEffectiveValues("metronome") ?? {};
+    return 1 + Math.min(Number(values.max) || 0, state.metronomeStreak * (Number(values.step) || 0));
+  }
+
   async load(encounterId) {
-    const encounter = this.getEncounterById(encounterId);
+    let encounter = this.getEncounterById(encounterId);
     if (encounter === null) throw new Error(`Rencontre introuvable : ${encounterId}`);
+    encounter = this.resolveDirectorChoice(encounter);
     await this.stopVideoSync();
     const eventModifiers = this.gameState.consumeEncounterModifiers?.() ?? [];
-    const eventSummary = aggregateModifiers(eventModifiers);
-    const itemSummary = this.itemEffects.getEncounterModifiers(encounter);
-    if (Number.isInteger(eventSummary.intensityShift) && eventSummary.intensityShift !== 0) this.gameState.queueNextFunscriptDifficultyShift(eventSummary.intensityShift);
+    const modifierSummary = aggregateModifiers(eventModifiers);
+    const doubleBet = this.resolveDoubleBet();
+    const totalDifficultyShift = modifierSummary.intensityShift + doubleBet.difficultyShift;
+    if (Number.isInteger(totalDifficultyShift) && totalDifficultyShift !== 0) this.gameState.queueNextFunscriptDifficultyShift(totalDifficultyShift);
     const funscriptSelection = this.resolveFunscript({ encounter, gameState: this.gameState });
     const baseRewardGold = Number.isFinite(encounter.rewardGold) ? encounter.rewardGold : 0;
-    const rewardMultiplier = eventSummary.rewardMultiplier * itemSummary.rewardMultiplier;
-    const durationReductionSeconds = Math.max(0, itemSummary.durationReductionSeconds - itemSummary.durationExtraSeconds - eventSummary.durationSeconds);
     const loadedEncounter = {
       ...encounter,
       selectedFunscriptDifficulty: funscriptSelection.difficulty,
@@ -49,14 +87,14 @@ export class EncounterController {
       selectedFunscriptPath: funscriptSelection.path,
       funscriptFallbackUsed: funscriptSelection.fallbackUsed,
       eventModifiers,
-      itemModifiers: itemSummary,
-      durationAdjustmentSeconds: eventSummary.durationSeconds + itemSummary.durationExtraSeconds - itemSummary.durationReductionSeconds,
-      hideInterfaceSeconds: eventSummary.hideInterfaceSeconds,
-      activeItemsDisabled: itemSummary.activeItemsDisabled,
-      intensityMultiplier: itemSummary.intensityMultiplier,
-      effectiveRewardGold: Math.max(0, Math.round((baseRewardGold + eventSummary.rewardGoldFlat + itemSummary.possessedBatteryGoldBonus) * rewardMultiplier))
+      doubleBetAccepted: doubleBet.accepted,
+      durationAdjustmentSeconds: modifierSummary.durationSeconds,
+      hideInterfaceSeconds: modifierSummary.hideInterfaceSeconds,
+      effectiveRewardGold: Math.max(0, Math.round((baseRewardGold + modifierSummary.rewardGoldFlat) * modifierSummary.rewardMultiplier * doubleBet.rewardMultiplier))
     };
     this.currentEncounter = loadedEncounter;
+    if (!this.gameState.itemRunState) this.gameState.itemRunState = {};
+    this.gameState.itemRunState.rescueUsedInEncounter = false;
     this.resetActions();
     this.video.pause();
     this.video.src = encounter.videoPath;
@@ -64,15 +102,6 @@ export class EncounterController {
     this.setFunscriptPath(funscriptSelection.path);
     await this.loadFunscript();
     this.itemController.resetForEncounter();
-    if (itemSummary.activeItemsDisabled) this.itemController.setEncounterLock?.(true);
-    else this.itemController.setEncounterLock?.(false);
-    if (durationReductionSeconds > 0) {
-      const applyReduction = () => {
-        if (Number.isFinite(this.video.duration)) this.video.currentTime = Math.min(durationReductionSeconds, Math.max(0, this.video.duration - 0.1));
-      };
-      if (this.video.readyState >= 1) applyReduction();
-      else this.video.addEventListener("loadedmetadata", applyReduction, { once:true });
-    }
     this.onEncounterLoaded(loadedEncounter, funscriptSelection);
     try { await this.video.play(); } catch (error) { this.onPlaybackFallback(loadedEncounter, error); }
     return loadedEncounter;
@@ -81,12 +110,12 @@ export class EncounterController {
   async complete() {
     const encounterState = this.gameState.currentEncounter;
     if (encounterState === null) { console.warn("Aucune rencontre active à terminer."); return null; }
-    const encounter = this.getEncounterById(encounterState.encounterId);
+    const encounter = this.currentEncounter ?? this.getEncounterById(encounterState.encounterId);
     if (encounter === null) throw new Error(`Rencontre introuvable : ${encounterState.encounterId}`);
-    const rewardGold = Number.isFinite(this.currentEncounter?.effectiveRewardGold) ? this.currentEncounter.effectiveRewardGold : (Number.isFinite(encounter.rewardGold) ? encounter.rewardGold : 0);
+    let rewardGold = Number.isFinite(encounter.effectiveRewardGold) ? encounter.effectiveRewardGold : (Number.isFinite(encounter.rewardGold) ? encounter.rewardGold : 0);
+    rewardGold = Math.max(0, Math.round(rewardGold * this.getMetronomeMultiplier()));
     this.gameState.completeCurrentNode();
     this.currentEncounter = null;
-    this.itemController.setEncounterLock?.(false);
     const rechargeResult = this.itemController.advanceRechargeCounters({ encounterType: encounter.type });
     this.gameState.advanceDisabledItems?.();
     if (encounter.type === "boss") {
