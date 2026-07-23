@@ -25,30 +25,30 @@ export class EventView {
       button.type = "button";
       button.className = "event-choice-button";
       button.textContent = choice.label;
-      button.addEventListener("click", () => {
-        this.disableChoices();
-        this.onChoiceSelected(event, choice);
-      });
+      button.addEventListener("click", () => { this.disableChoices(); this.onChoiceSelected(event, choice); });
       this.eventChoiceList.append(button);
     }
 
     const { gameState, itemController } = getGameRuntime();
     if (gameState?.hasItem("escape-token") && itemController?.isAvailable("escape-token")) {
-      const escapeButton = document.createElement("button");
-      escapeButton.type = "button";
-      escapeButton.className = "event-choice-button secondary-button";
-      escapeButton.textContent = "Utiliser le Jeton de fuite";
-      escapeButton.addEventListener("click", () => {
-        this.disableChoices();
-        try {
-          getGameRuntime().runController?.escapeEvent("escape-token");
-        } catch (error) {
-          console.error("Impossible de fuir l’événement :", error);
-          this.enableChoices();
-        }
-      });
-      this.eventChoiceList.append(escapeButton);
+      this.appendRuntimeAction("Utiliser le Jeton de fuite", () => getGameRuntime().runController?.escapeEvent("escape-token"));
     }
+    if (gameState?.hasItem("exit-ticket") && itemController?.isAvailable("exit-ticket")) {
+      this.appendRuntimeAction("Utiliser le Ticket de sortie", () => getGameRuntime().runController?.leaveCurrentRoom("exit-ticket"));
+    }
+  }
+
+  appendRuntimeAction(label, action) {
+    const button = document.createElement("button");
+    button.type = "button";
+    button.className = "event-choice-button secondary-button";
+    button.textContent = label;
+    button.addEventListener("click", async () => {
+      this.disableChoices();
+      try { await action(); }
+      catch (error) { console.error(`Impossible d’exécuter « ${label} » :`, error); this.enableChoices(); }
+    });
+    this.eventChoiceList.append(button);
   }
 
   disableChoices() { for (const button of this.eventChoiceList.querySelectorAll("button")) button.disabled = true; }
