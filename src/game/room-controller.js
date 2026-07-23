@@ -1,7 +1,7 @@
 "use strict";
 
 import { GAME_STATUS } from "./game-state.js";
-import { getAvailableItems, getItemById } from "../data/items.js";
+import { getAvailableItems, getItemById, ITEM_RARITIES, ITEM_TYPES } from "../data/items.js";
 
 function shuffle(values) {
   const copy = [...values];
@@ -12,17 +12,11 @@ function shuffle(values) {
   return copy;
 }
 
-function roundPrice(price) {
-  return Math.max(0, Math.round(price / 5) * 5);
-}
+function roundPrice(price) { return Math.max(0, Math.round(price / 5) * 5); }
 
 export class RoomController {
   constructor({ gameState, itemController, shopView, campfireView, onRoomCompleted }) {
-    this.gameState = gameState;
-    this.itemController = itemController;
-    this.shopView = shopView;
-    this.campfireView = campfireView;
-    this.onRoomCompleted = onRoomCompleted;
+    Object.assign(this, { gameState, itemController, shopView, campfireView, onRoomCompleted });
     this.shopStates = new Map();
     this.currentNode = null;
   }
@@ -42,28 +36,42 @@ export class RoomController {
     throw new Error(`Type de salle non pris en charge : ${node.type}`);
   }
 
-  getOwnedValues(itemId) {
-    if (!this.gameState.hasItem(itemId)) return null;
-    return this.itemController.getEffectiveValues(itemId);
-  }
+  getOwnedValues(itemId) { return this.gameState.hasItem(itemId) ? this.itemController.getEffectiveValues(itemId) : null; }
 
   getInflationMultiplier() {
-    const row = this.currentNode?.row ?? 0;
-    const progress = Math.max(0, Math.min(1, row / 12));
+    const progress = Math.max(0, Math.min(1, (this.currentNode?.row ?? 0) / 12));
     if (progress >= 2 / 3) return 1.2;
     if (progress >= 1 / 3) return 1.1;
     return 1;
   }
 
-  getStockSize() {
-    const values = this.getOwnedValues("privileged-stock");
-    return 3 + Math.max(0, Number(values?.slots) || 0);
+  getStockSize() { return 3 + Math.max(0, Number(this.getOwnedValues("privileged-stock")?.slots) || 0); }
+
+  getRareChance(extraSlot = false) {
+    let chance = 0.05;
+    chance += Math.max(0, Number(this.getOwnedValues("lucky-coin")?.rareBonus) || 0);
+    chance += Math.max(0, Number(this.getOwnedValues("cursed-token")?.rareBonus) || 0);
+    if (extraSlot) chance += Math.max(0, Number(this.getOwnedValues("privileged-stock")?.rareBonus) || 0);
+    return Math.min(0.75, chance);
+  }
+
+  pickStockItem(pool, { extraSlot = false } = {}) {
+    const rare = pool.filter((item) => item.rarity === ITEM_RARITIES.RARE);
+    const common = pool.filter((item) => item.rarity !== ITEM_RARITIES.RARE);
+    const source = Math.random() < this.getRareChance(extraSlot) && rare.length ? rare : (common.length ? common : rare);
+    return source[Math.floor(Math.random() * source.length)] ?? null;
   }
 
   createStock(size = this.getStockSize()) {
-    return shuffle(getAvailableItems(this.gameState.inventory))
-      .slice(0, size)
-      .map((entry) => entry.id);
+    const pool = getAvailableItems(this.gameState.inventory);
+    const stock = [];
+    while (stock.length < size && pool.length) {
+      const selected = this.pickStockItem(pool, { extraSlot: stock.length >= 3 });
+      if (!selected) break;
+      stock.push(selected.id);
+      pool.splice(pool.findIndex((item) => item.id === selected.id), 1);
+    }
+    return stock;
   }
 
   getShopState() {
@@ -73,70 +81,68 @@ export class RoomController {
         stock: this.createStock(),
         rerollCount: 0,
         purchaseCount: 0,
-        loyaltyDiscount: 0
+        loyaltyDiscount: 0,
+        eventPriceMultiplier: this.gameState.consumeNextShopPriceMultiplier?.() ?? 1,
+        couponUsed: false
       });
     }
     return this.shopStates.get(nodeId);
   }
 
-  getRerollCost(rerollCount) {
-    const costs = [25, 40, 60];
-    return costs[rerollCount] ?? 60 + (rerollCount - 2) * 20;
-  }
+  getRerollCost(rerollCount) { return [25, 40, 60][rerollCount] ?? 60 + (rerollCount - 2) * 20; }
 
   getShopDiscount(state) {
     const regular = Math.max(0, Number(this.getOwnedValues("shop-regular")?.discount) || 0);
     const faithful = this.getOwnedValues("faithful-customer");
-    const faithfulDiscount = state.purchaseCount < (Number(faithful?.purchases) || 0)
-      ? Math.max(0, Number(faithful?.discount) || 0)
-      : 0;
-    return Math.min(0.8, regular + faithfulDiscount + state.loyaltyDiscount);
+    const faithfulDiscount = state.purchaseCount < (Number(faithful?.purchases) || 0) ? Math.max(0, Number(faithful?.discount) || 0) : 0;
+    return Math.min(0.35, regular + faithfulDiscount + state.loyaltyDiscount);
   }
 
   getItemPrice(item, state = this.getShopState()) {
-    const base = item.price * this.getInflationMultiplier();
+    const base = item.price * this.getInflationMultiplier() * (state.eventPriceMultiplier ?? 1);
     return roundPrice(base * (1 - this.getShopDiscount(state)));
   }
 
   renderShop() {
     const state = this.getShopState();
-    const items = state.stock
-      .map((itemId) => getItemById(itemId))
-      .filter((entry) => entry !== null)
-      .map((entry) => {
-        const price = this.getItemPrice(entry, state);
-        return { item: entry, price, affordable: this.gameState.gold >= price };
-      });
-
-    this.shopView.render({
-      gold: this.gameState.gold,
-      items,
-      rerollCost: this.getRerollCost(state.rerollCount)
+    const items = state.stock.map((itemId) => getItemById(itemId)).filter(Boolean).map((entry) => {
+      const price = this.getItemPrice(entry, state);
+      return { item: entry, price, affordable: this.gameState.gold >= price };
     });
+    this.shopView.render({ gold: this.gameState.gold, items, rerollCost: this.getRerollCost(state.rerollCount) });
   }
 
   buyItem(itemId) {
     const state = this.getShopState();
     const item = getItemById(itemId);
-    if (item === null || !state.stock.includes(itemId)) return false;
-
+    if (!item || !state.stock.includes(itemId)) return false;
     const price = this.getItemPrice(item, state);
     if (!this.gameState.spendGold(price)) return false;
-    if (!this.gameState.addItem(item.id)) {
-      this.gameState.addGold(price);
-      return false;
-    }
-
+    if (!this.gameState.addItem(item.id)) { this.gameState.addGold(price); return false; }
+    this.itemController.ensureRuntimeState(item.id);
     state.stock = state.stock.filter((entry) => entry !== item.id);
     state.purchaseCount += 1;
-
     const loyalty = this.getOwnedValues("loyalty-program");
-    if (loyalty) {
-      const step = Math.max(0, Number(loyalty.discountPerPurchase) || 0);
-      const maximum = Math.max(0, Number(loyalty.maxDiscount) || 0);
-      state.loyaltyDiscount = Math.min(maximum, state.loyaltyDiscount + step);
-    }
+    if (loyalty) state.loyaltyDiscount = Math.min(Number(loyalty.maxDiscount) || 0, state.loyaltyDiscount + (Number(loyalty.discountPerPurchase) || 0));
+    this.renderShop();
+    return true;
+  }
 
+  useDubiousCoupon() {
+    const state = this.getShopState();
+    if (!this.gameState.hasItem("dubious-coupon") || state.couponUsed) return [];
+    const choices = shuffle(state.stock).slice(0, this.gameState.isItemUpgraded("dubious-coupon") ? 2 : 1);
+    state.couponUsed = true;
+    return choices;
+  }
+
+  redeemDubiousCoupon(itemId) {
+    const state = this.getShopState();
+    if (!state.couponUsed || !state.stock.includes(itemId) || !this.gameState.hasItem("dubious-coupon")) return false;
+    if (!this.gameState.addItem(itemId)) return false;
+    this.itemController.ensureRuntimeState(itemId);
+    this.gameState.removeItem("dubious-coupon");
+    state.stock = state.stock.filter((id) => id !== itemId);
     this.renderShop();
     return true;
   }
@@ -152,25 +158,13 @@ export class RoomController {
   }
 
   renderCampfire() {
-    const upgradeableItems = this.gameState.inventory
-      .map((itemId) => getItemById(itemId))
-      .filter((entry) => entry !== null && entry.upgrade !== undefined && !this.gameState.isItemUpgraded(entry.id));
+    const upgradeableItems = this.gameState.inventory.map(getItemById).filter((entry) => entry && entry.upgrade !== undefined && !this.gameState.isItemUpgraded(entry.id));
     this.campfireView.setUpgradeableItems(upgradeableItems);
     this.campfireView.show();
   }
 
-  rest() {
-    this.itemController.rechargeAll();
-    this.completeRoom();
-  }
-
-  upgradeItem(itemId) {
-    const item = getItemById(itemId);
-    if (item === null || item.upgrade === undefined) return false;
-    if (!this.gameState.upgradeItem(itemId)) return false;
-    this.completeRoom();
-    return true;
-  }
+  rest() { this.itemController.rechargeAll(); this.completeRoom(); }
+  upgradeItem(itemId) { const item = getItemById(itemId); if (!item?.upgrade || !this.gameState.upgradeItem(itemId)) return false; this.completeRoom(); return true; }
 
   completeRoom() {
     this.gameState.completeCurrentNode();
