@@ -1,9 +1,7 @@
 "use strict";
 
 import { getGameRuntime } from "../game/runtime-access.js";
-import { EventResolver } from "../game/event-resolver.js";
 import { EventItemActions } from "../game/event-item-actions.js";
-import { GAME_STATUS } from "../game/game-state.js";
 
 export class EventView {
   constructor({ eventTitle, eventDescription, eventChoiceList, onChoiceSelected }) {
@@ -12,11 +10,13 @@ export class EventView {
     if (!(eventChoiceList instanceof HTMLDivElement)) throw new Error("La liste des choix de l’événement est invalide.");
     if (typeof onChoiceSelected !== "function") throw new Error("onChoiceSelected doit être une fonction.");
     Object.assign(this, { eventTitle, eventDescription, eventChoiceList, onChoiceSelected });
+    this.resolving = false;
   }
 
   render(event) {
     if (!event) throw new Error("L’événement à afficher est invalide.");
     this.currentEvent = event;
+    this.resolving = false;
     this.eventTitle.textContent = event.title;
     this.eventDescription.textContent = event.description;
     this.eventChoiceList.replaceChildren();
@@ -35,7 +35,18 @@ export class EventView {
     button.type = "button";
     button.className = "event-choice-button";
     button.textContent = choice.label;
-    button.addEventListener("click", () => { this.disableChoices(); void this.resolveChoice(event, choice); });
+    button.addEventListener("click", async () => {
+      if (this.resolving) return;
+      this.resolving = true;
+      this.disableChoices();
+      try {
+        await this.onChoiceSelected(event, choice);
+      } catch (error) {
+        this.resolving = false;
+        this.enableChoices();
+        throw error;
+      }
+    });
     this.eventChoiceList.append(button);
   }
 
@@ -43,7 +54,7 @@ export class EventView {
     const runtime = getGameRuntime();
     const eventEngine = globalThis.__CHV1_PHASE_ONE__?.getEventEngine?.();
     if (!runtime.gameState || !eventEngine) throw new Error("Le moteur d’événements n’est pas disponible.");
-    return new EventItemActions({ gameState:runtime.gameState, eventEngine });
+    return new EventItemActions({ gameState: runtime.gameState, eventEngine });
   }
 
   async useRiggedCoin(event) {
@@ -74,59 +85,17 @@ export class EventView {
     this.render(replaced);
   }
 
-  async resolveChoice(event, choice) {
-    const runtime = getGameRuntime();
-    const basicEffects = new Set(["gain-gold", "none"]);
-    if (basicEffects.has(choice.effect.type)) { this.onChoiceSelected(event, choice); return; }
-    try {
-      const resolver = new EventResolver({
-        gameState:runtime.gameState,
-        itemController:runtime.itemController,
-        async startEncounter(encounterId, encounterType) {
-          runtime.gameState.setCurrentEncounter({ nodeId:runtime.gameState.currentNodeId, encounterId, type:encounterType });
-          runtime.gameState.setStatus(GAME_STATUS.ENCOUNTER);
-          runtime.screenController.showEncounter();
-          const title = document.getElementById("encounter-title");
-          if (title) title.textContent = "Rencontre imprévue";
-          await runtime.encounterController.load(encounterId);
-        }
-      });
-      const result = await resolver.resolve(choice.effect);
-      if (choice.effect.type === "start-encounter") return;
-      runtime.gameState.completeCurrentNode();
-      runtime.gameState.setStatus(GAME_STATUS.MAP);
-      runtime.screenController.showMap();
-      runtime.mapView?.render({ gameState:runtime.gameState, currentNode:runtime.mapController.getCurrentNode(), accessibleNodes:runtime.mapController.getAccessibleNodes() });
-      const status = document.getElementById("video-status");
-      if (status) status.textContent = this.describeResult(result);
-    } catch (error) {
-      console.error("Impossible de résoudre l’événement :", error);
-      this.enableChoices();
-    }
-  }
-
-  describeResult(result) {
-    switch (result.type) {
-      case "lose-gold": return `Événement terminé : ${result.amount} or perdu.`;
-      case "gain-item": return result.itemId ? "Événement terminé : objet obtenu." : "Aucun objet disponible.";
-      case "lose-item": return result.itemId ? "Événement terminé : un objet a été perdu." : "Aucun objet à perdre.";
-      case "difficulty-shift": return "La difficulté de la prochaine rencontre a changé.";
-      case "arm-protection": return "Une protection est active pour la prochaine rencontre.";
-      case "next-duration": return "La durée de la prochaine rencontre a changé.";
-      case "next-reward": return "La prochaine récompense a changé.";
-      case "disable-item": return result.itemId ? "Un objet est temporairement désactivé." : "Aucun objet compatible.";
-      default: return "Événement terminé.";
-    }
-  }
-
   appendRuntimeAction(label, action) {
     const button = document.createElement("button");
     button.type = "button";
     button.className = "event-choice-button secondary-button";
     button.textContent = label;
     button.addEventListener("click", async () => {
+      if (this.resolving) return;
+      this.resolving = true;
       this.disableChoices();
-      try { await action(); } catch (error) { console.error(`Impossible d’exécuter « ${label} » :`, error); this.enableChoices(); }
+      try { await action(); }
+      catch (error) { this.resolving = false; console.error(`Impossible d’exécuter « ${label} » :`, error); this.enableChoices(); }
     });
     this.eventChoiceList.append(button);
   }
