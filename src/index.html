@@ -2,7 +2,7 @@
 <html lang="fr">
 <head>
   <meta charset="UTF-8" />
-  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; media-src 'self'; script-src 'self'; style-src 'self'; connect-src 'self' ws://127.0.0.1:12345 ws://localhost:12345" />
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; media-src 'self' file:; script-src 'self'; style-src 'self'; connect-src 'self' ws://127.0.0.1:12345 ws://localhost:12345" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>CHV1 — Video Ascension</title>
   <link rel="stylesheet" href="./style.css" />
@@ -13,6 +13,7 @@
   <script src="./renderer.bundle.js" defer></script>
   <script type="module" src="./phase-one-bootstrap.js"></script>
   <script type="module" src="./map-item-bootstrap.js"></script>
+  <script type="module" src="./media-library-bootstrap.js"></script>
   <script type="module" src="./defeat-button.js"></script>
 </head>
 <body>
