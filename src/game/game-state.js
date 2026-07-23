@@ -19,55 +19,32 @@ function normalizeModifier(modifier = {}) {
 export class GameState {
   constructor() { this.reset(); registerGameState(this); }
   reset() {
-    this.status = GAME_STATUS.MENU;
-    this.gold = 50;
-    this.inventory = [];
-    this.upgradedItemIds = [];
-    this.consumedDefeatProtectionIds = [];
-    this.currentNodeId = null;
-    this.completedNodeIds = [];
-    this.currentEncounter = null;
-    this.nextFunscriptDifficultyShift = 0;
-    this.nextEncounterProtectionArmed = false;
-    this.seenEventIds = [];
-    this.pendingEncounterModifiers = [];
-    this.disabledItems = {};
-    this.cobayeRelations = {};
-    this.eventFlags = {};
-    this.nextShopPriceMultiplier = 1;
-    this.nextEliteRareChanceBonus = 0;
+    this.status = GAME_STATUS.MENU; this.gold = 50; this.inventory = []; this.upgradedItemIds = [];
+    this.consumedDefeatProtectionIds = []; this.currentNodeId = null; this.completedNodeIds = [];
+    this.currentEncounter = null; this.nextFunscriptDifficultyShift = 0; this.nextEncounterProtectionArmed = false;
+    this.seenEventIds = []; this.pendingEncounterModifiers = []; this.disabledItems = {}; this.cobayeRelations = {};
+    this.eventFlags = {}; this.runFlags = {}; this.nextShopPriceMultiplier = 1; this.nextEliteRareChanceBonus = 0;
   }
   startRun(startNodeId = "start") { this.reset(); this.status = GAME_STATUS.MAP; this.currentNodeId = startNodeId; }
   setStatus(status) { if (!Object.values(GAME_STATUS).includes(status)) throw new Error(`Statut de partie invalide : ${status}`); this.status = status; }
   setCurrentEncounter(encounter) { this.currentEncounter = encounter; }
   armNextEncounterProtection() { this.nextEncounterProtectionArmed = true; }
   consumeNextEncounterProtection() { const armed = this.nextEncounterProtectionArmed; this.nextEncounterProtectionArmed = false; return armed; }
-  queueNextFunscriptDifficultyShift(amount) {
-    if (!Number.isInteger(amount) || amount === 0) throw new Error("Le changement de difficulté doit être un entier non nul.");
-    this.nextFunscriptDifficultyShift = Math.max(-2, Math.min(2, this.nextFunscriptDifficultyShift + amount));
-  }
+  queueNextFunscriptDifficultyShift(amount) { if (!Number.isInteger(amount) || amount === 0) throw new Error("Le changement de difficulté doit être un entier non nul."); this.nextFunscriptDifficultyShift = Math.max(-2, Math.min(2, this.nextFunscriptDifficultyShift + amount)); }
   consumeNextFunscriptDifficultyShift() { const shift = this.nextFunscriptDifficultyShift; this.nextFunscriptDifficultyShift = 0; return shift; }
   markEventSeen(eventId) { if (eventId && !this.seenEventIds.includes(eventId)) this.seenEventIds.push(eventId); }
   hasSeenEvent(eventId) { return this.seenEventIds.includes(eventId); }
   addEncounterModifier(modifier) { const normalized = normalizeModifier(modifier); this.pendingEncounterModifiers.push(normalized); return normalized; }
-  consumeEncounterModifiers() {
-    const active = this.pendingEncounterModifiers.map((modifier) => ({ ...modifier }));
-    this.pendingEncounterModifiers = this.pendingEncounterModifiers
-      .map((modifier) => ({ ...modifier, encountersRemaining: modifier.encountersRemaining - 1 }))
-      .filter((modifier) => modifier.encountersRemaining > 0);
-    return active;
-  }
+  consumeEncounterModifiers() { const active = this.pendingEncounterModifiers.map((modifier) => ({ ...modifier })); this.pendingEncounterModifiers = this.pendingEncounterModifiers.map((modifier) => ({ ...modifier, encountersRemaining: modifier.encountersRemaining - 1 })).filter((modifier) => modifier.encountersRemaining > 0); return active; }
   disableItem(itemId, encounters = 2) { if (!this.hasItem(itemId)) return false; this.disabledItems[itemId] = Math.max(1, Number(encounters) || 1); return true; }
   isItemDisabled(itemId) { return (this.disabledItems[itemId] ?? 0) > 0; }
-  advanceDisabledItems() {
-    for (const [itemId, remaining] of Object.entries(this.disabledItems)) {
-      const next = remaining - 1;
-      if (next <= 0) delete this.disabledItems[itemId]; else this.disabledItems[itemId] = next;
-    }
-  }
+  advanceDisabledItems() { for (const [itemId, remaining] of Object.entries(this.disabledItems)) { const next = remaining - 1; if (next <= 0) delete this.disabledItems[itemId]; else this.disabledItems[itemId] = next; } }
   adjustCobayeRelation(cobayeId, amount) { const next = (this.cobayeRelations[cobayeId] ?? 0) + amount; this.cobayeRelations[cobayeId] = next; return next; }
   setEventFlag(flag, value = true) { this.eventFlags[flag] = value; return value; }
   getEventFlag(flag) { return this.eventFlags[flag]; }
+  setRunFlag(flag, value = true) { this.runFlags[flag] = value; return value; }
+  getRunFlag(flag) { return this.runFlags[flag]; }
+  consumeRunFlag(flag, fallback = null) { const value = Object.hasOwn(this.runFlags, flag) ? this.runFlags[flag] : fallback; delete this.runFlags[flag]; return value; }
   multiplyNextShopPrices(multiplier) { this.nextShopPriceMultiplier = Math.max(0.1, this.nextShopPriceMultiplier * multiplier); }
   consumeNextShopPriceMultiplier() { const value = this.nextShopPriceMultiplier; this.nextShopPriceMultiplier = 1; return value; }
   addNextEliteRareChanceBonus(amount) { this.nextEliteRareChanceBonus = Math.max(0, this.nextEliteRareChanceBonus + amount); }
