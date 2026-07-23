@@ -53,7 +53,9 @@ export class PhaseOneView {
   showEnding({ ending, onRestart }) {
     const copy = ENDING_COPY[ending] ?? ENDING_COPY["subject-perfect"];
     this.show({
-      ...copy,
+      kicker: copy.kicker,
+      title: copy.title,
+      message: copy.body,
       primaryLabel: "Recommencer une partie",
       onPrimary: onRestart
     });
