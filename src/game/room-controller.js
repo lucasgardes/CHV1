@@ -3,37 +3,24 @@
 import { GAME_STATUS } from "./game-state.js";
 import { getAvailableItems, getItemById, ITEM_RARITIES } from "../data/items.js";
 import { registerRoomController } from "./runtime-access.js";
+import { ArchiveService } from "./archive-service.js";
 
-function shuffle(values) {
-  const copy = [...values];
-  for (let index = copy.length - 1; index > 0; index -= 1) {
-    const randomIndex = Math.floor(Math.random() * (index + 1));
-    [copy[index], copy[randomIndex]] = [copy[randomIndex], copy[index]];
-  }
-  return copy;
-}
-function roundPrice(price) { return Math.max(0, Math.round(price / 5) * 5); }
+function shuffle(values){const copy=[...values];for(let index=copy.length-1;index>0;index-=1){const randomIndex=Math.floor(Math.random()*(index+1));[copy[index],copy[randomIndex]]=[copy[randomIndex],copy[index]];}return copy;}
+function roundPrice(price){return Math.max(0,Math.round(price/5)*5);}
 
 export class RoomController {
-  constructor({ gameState, itemController, shopView, campfireView, onRoomCompleted }) {
-    Object.assign(this, { gameState, itemController, shopView, campfireView, onRoomCompleted });
-    this.shopStates = new Map();
-    this.currentNode = null;
-    registerRoomController(this);
+  constructor({gameState,itemController,shopView,campfireView,onRoomCompleted}){
+    Object.assign(this,{gameState,itemController,shopView,campfireView,onRoomCompleted});
+    this.shopStates=new Map();this.currentNode=null;this.archiveService=new ArchiveService({gameState});registerRoomController(this);
   }
-  open(node) {
-    this.currentNode = node;
-    if (node.type === "shop") { this.gameState.setStatus(GAME_STATUS.SHOP); this.renderShop(); return; }
-    if (node.type === "campfire") { this.gameState.setStatus(GAME_STATUS.CAMPFIRE); this.renderCampfire(); return; }
-    throw new Error(`Type de salle non pris en charge : ${node.type}`);
-  }
-  getOwnedValues(itemId) { return this.gameState.hasItem(itemId) ? this.itemController.getEffectiveValues(itemId) : null; }
-  getInflationMultiplier() { const progress=Math.max(0,Math.min(1,(this.currentNode?.row??0)/12)); if(progress>=2/3)return 1.2;if(progress>=1/3)return 1.1;return 1; }
-  getStockSize() { return 3 + Math.max(0, Number(this.getOwnedValues("privileged-stock")?.slots) || 0); }
-  getRareChance(extraSlot=false) { let chance=.05; chance+=Math.max(0,Number(this.getOwnedValues("lucky-coin")?.rareBonus)||0); chance+=Math.max(0,Number(this.getOwnedValues("cursed-token")?.rareBonus)||0); if(extraSlot)chance+=Math.max(0,Number(this.getOwnedValues("privileged-stock")?.rareBonus)||0); return Math.min(.75,chance); }
-  pickStockItem(pool,{extraSlot=false}={}) { const rare=pool.filter((item)=>item.rarity===ITEM_RARITIES.RARE); const common=pool.filter((item)=>item.rarity!==ITEM_RARITIES.RARE); const source=Math.random()<this.getRareChance(extraSlot)&&rare.length?rare:(common.length?common:rare); return source[Math.floor(Math.random()*source.length)]??null; }
-  createStock(size=this.getStockSize()) { const pool=getAvailableItems(this.gameState.inventory); const stock=[]; while(stock.length<size&&pool.length){const selected=this.pickStockItem(pool,{extraSlot:stock.length>=3});if(!selected)break;stock.push(selected.id);pool.splice(pool.findIndex((item)=>item.id===selected.id),1);}return stock; }
-  getShopState() { const nodeId=this.currentNode.id; if(!this.shopStates.has(nodeId)){this.shopStates.set(nodeId,{stock:this.createStock(),rerollCount:0,purchaseCount:0,loyaltyDiscount:0,eventPriceMultiplier:this.gameState.consumeNextShopPriceMultiplier?.()??1,couponUsed:false});}return this.shopStates.get(nodeId); }
+  open(node){this.currentNode=node;if(node.type==="shop"){this.gameState.setStatus(GAME_STATUS.SHOP);this.renderShop();return;}if(node.type==="campfire"){this.gameState.setStatus(GAME_STATUS.CAMPFIRE);this.gameState.registerCampfireVisit(node.id);this.renderCampfire();return;}throw new Error(`Type de salle non pris en charge : ${node.type}`);}
+  getOwnedValues(itemId){return this.gameState.hasItem(itemId)?this.itemController.getEffectiveValues(itemId):null;}
+  getInflationMultiplier(){const progress=Math.max(0,Math.min(1,(this.currentNode?.row??0)/12));if(progress>=2/3)return 1.2;if(progress>=1/3)return 1.1;return 1;}
+  getStockSize(){return 3+Math.max(0,Number(this.getOwnedValues("privileged-stock")?.slots)||0);}
+  getRareChance(extraSlot=false){let chance=.05;chance+=Math.max(0,Number(this.getOwnedValues("lucky-coin")?.rareBonus)||0);chance+=Math.max(0,Number(this.getOwnedValues("cursed-token")?.rareBonus)||0);if(extraSlot)chance+=Math.max(0,Number(this.getOwnedValues("privileged-stock")?.rareBonus)||0);return Math.min(.75,chance);}
+  pickStockItem(pool,{extraSlot=false}={}){const rare=pool.filter((item)=>item.rarity===ITEM_RARITIES.RARE);const common=pool.filter((item)=>item.rarity!==ITEM_RARITIES.RARE);const source=Math.random()<this.getRareChance(extraSlot)&&rare.length?rare:(common.length?common:rare);return source[Math.floor(Math.random()*source.length)]??null;}
+  createStock(size=this.getStockSize()){const pool=getAvailableItems(this.gameState.inventory);const stock=[];while(stock.length<size&&pool.length){const selected=this.pickStockItem(pool,{extraSlot:stock.length>=3});if(!selected)break;stock.push(selected.id);pool.splice(pool.findIndex((item)=>item.id===selected.id),1);}return stock;}
+  getShopState(){const nodeId=this.currentNode.id;if(!this.shopStates.has(nodeId)){this.shopStates.set(nodeId,{stock:this.createStock(),rerollCount:0,purchaseCount:0,loyaltyDiscount:0,eventPriceMultiplier:this.gameState.consumeNextShopPriceMultiplier?.()??1,couponUsed:false});}return this.shopStates.get(nodeId);}
   getRerollCost(rerollCount){return[25,40,60][rerollCount]??60+(rerollCount-2)*20;}
   getShopDiscount(state){const regular=Math.max(0,Number(this.getOwnedValues("shop-regular")?.discount)||0);const faithful=this.getOwnedValues("faithful-customer");const faithfulDiscount=state.purchaseCount<(Number(faithful?.purchases)||0)?Math.max(0,Number(faithful?.discount)||0):0;return Math.min(.35,regular+faithfulDiscount+state.loyaltyDiscount);}
   getItemPrice(item,state=this.getShopState()){const base=item.price*this.getInflationMultiplier()*(state.eventPriceMultiplier??1);return roundPrice(base*(1-this.getShopDiscount(state)));}
@@ -42,8 +29,10 @@ export class RoomController {
   useDubiousCoupon(){const state=this.getShopState();if(!this.gameState.hasItem("dubious-coupon")||state.couponUsed)return[];const choices=shuffle(state.stock).slice(0,this.gameState.isItemUpgraded("dubious-coupon")?2:1);state.couponUsed=true;return choices;}
   redeemDubiousCoupon(itemId){const state=this.getShopState();if(!state.couponUsed||!state.stock.includes(itemId)||!this.gameState.hasItem("dubious-coupon"))return false;if(!this.gameState.addItem(itemId))return false;this.itemController.ensureRuntimeState(itemId);this.gameState.removeItem("dubious-coupon");state.stock=state.stock.filter((id)=>id!==itemId);this.renderShop();return true;}
   rerollShop(){const state=this.getShopState();const cost=this.getRerollCost(state.rerollCount);if(!this.gameState.spendGold(cost))return false;state.rerollCount+=1;state.stock=this.createStock();this.renderShop();return true;}
-  renderCampfire(){const upgradeableItems=this.gameState.inventory.map(getItemById).filter((entry)=>entry&&entry.upgrade!==undefined&&!this.gameState.isItemUpgraded(entry.id));this.campfireView.setUpgradeableItems(upgradeableItems);this.campfireView.show();}
+  renderCampfire(){const upgradeableItems=this.gameState.inventory.map(getItemById).filter((entry)=>entry&&entry.upgrade!==undefined&&!this.gameState.isItemUpgraded(entry.id));this.campfireView.setUpgradeableItems(upgradeableItems);this.campfireView.setCampfireContext?.({firstArchive:this.archiveService.getDiscovered().length===0,hasExperiencedCamper:this.gameState.hasItem("experienced-camper"),previewExperiencedResult:this.gameState.isItemUpgraded("experienced-camper")});this.campfireView.show();}
   rest(){this.itemController.rechargeAll();this.completeRoom();}
   upgradeItem(itemId){const item=getItemById(itemId);if(!item?.upgrade||!this.gameState.upgradeItem(itemId))return false;this.completeRoom();return true;}
+  exploreHiddenRoom(){const result=this.archiveService.discoverCurrentCampfire(this.currentNode?.id);if(!result)return null;this.campfireView.showArchive?.(result.archive,{alreadyExplored:result.alreadyExplored,onContinue:()=>this.completeRoom()});return result;}
+  useExperiencedCamper(){if(!this.gameState.hasItem("experienced-camper"))return false;const rechargeables=this.gameState.inventory.filter((id)=>getItemById(id)?.type==="rechargeable");const target=rechargeables.find((id)=>!this.itemController.isAvailable(id))??rechargeables[0]??null;if(target)this.itemController.recharge(target);else this.gameState.addGold(20);this.completeRoom();return{itemId:target,gold:target?0:20};}
   completeRoom(){this.gameState.completeCurrentNode();this.gameState.setStatus(GAME_STATUS.MAP);this.shopView.hide();this.campfireView.hide();this.onRoomCompleted();}
 }
