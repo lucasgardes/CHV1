@@ -1,27 +1,78 @@
 "use strict";
 
-import { getItemById, getRandomAvailableItem } from "../data/items.js";
+import { getAvailableItems, getItemById, getRandomAvailableItem } from "../data/items.js";
+
+function randomBetween(minimum, maximum, random) {
+  const min = Math.ceil(Number(minimum) || 0);
+  const max = Math.floor(Number(maximum) || min);
+  return Math.floor(min + random() * (max - min + 1));
+}
 
 export class EventResolver {
-  constructor({ gameState, itemController = null, startEncounter = async () => {} }) {
+  constructor({ gameState, itemController = null, startEncounter = async () => {}, random = Math.random }) {
     this.gameState = gameState;
     this.itemController = itemController;
     this.startEncounter = startEncounter;
+    this.random = random;
   }
 
   async resolve(effect = {}) {
+    const amount = effect.amountRange ? randomBetween(effect.amountRange[0], effect.amountRange[1], this.random) : effect.amount;
     switch (effect.type) {
       case "none": return { type: effect.type };
-      case "gain-gold": this.gameState.addGold(effect.amount); return { type: effect.type, amount: effect.amount };
-      case "lose-gold": return { type: effect.type, amount: this.gameState.loseGold(effect.amount) };
+      case "gain-gold": this.gameState.addGold(amount); return { type: effect.type, amount };
+      case "lose-gold": return { type: effect.type, amount: this.gameState.loseGold(amount) };
       case "gain-item": return this.gainItem(effect.itemId);
-      case "random-item": return this.gainItem(getRandomAvailableItem(this.gameState.inventory)?.id ?? null);
-      case "lose-random-item": return this.loseRandomItem();
+      case "random-item": return this.gainItem(this.pickAvailableItem(effect.itemType)?.id ?? null);
+      case "choose-random-items": return { type: effect.type, candidates: this.pickAvailableItems(effect.count ?? 2, effect.itemType) };
+      case "lose-random-item": return this.loseRandomItem(effect.itemType);
+      case "lose-item": return this.loseItem(effect.itemId);
       case "difficulty-shift": this.gameState.queueNextFunscriptDifficultyShift(effect.amount); return { type: effect.type, amount: effect.amount };
       case "arm-protection": this.gameState.armNextEncounterProtection(); return { type: effect.type };
+      case "encounter-modifier": return { type: effect.type, modifier: this.gameState.addEncounterModifier(effect) };
+      case "next-duration": return { type: effect.type, modifier: this.gameState.addEncounterModifier({ source: effect.source ?? "event", durationSeconds: effect.seconds, encountersRemaining: effect.encounters ?? 1 }) };
+      case "next-reward": return { type: effect.type, modifier: this.gameState.addEncounterModifier({ source: effect.source ?? "event", rewardGoldFlat: effect.goldFlat ?? 0, rewardMultiplier: effect.multiplier ?? 1, encountersRemaining: effect.encounters ?? 1 }) };
+      case "next-intensity": return { type: effect.type, modifier: this.gameState.addEncounterModifier({ source: effect.source ?? "event", intensityShift: effect.amount, encountersRemaining: effect.encounters ?? 1 }) };
+      case "hide-interface": return { type: effect.type, modifier: this.gameState.addEncounterModifier({ source: effect.source ?? "event", hideInterfaceSeconds: effect.seconds, encountersRemaining: 1 }) };
+      case "shop-price-multiplier": this.gameState.multiplyNextShopPrices(effect.multiplier); return { type: effect.type, multiplier: effect.multiplier };
+      case "elite-rare-bonus": this.gameState.addNextEliteRareChanceBonus(effect.amount); return { type: effect.type, amount: effect.amount };
+      case "disable-item": return this.disableItem(effect.itemId, effect.encounters ?? 2);
+      case "disable-random-item": return this.disableRandomItem(effect.itemType, effect.encounters ?? 2);
+      case "recharge-item": return this.rechargeItem(effect.itemId);
+      case "recharge-random-item": return this.rechargeRandomItem(effect.itemType);
+      case "reduce-recharge-all": return this.reduceRechargeAll(effect.rounds ?? 1);
+      case "relation": return { type: effect.type, cobayeId: effect.cobayeId, value: this.gameState.adjustCobayeRelation(effect.cobayeId, effect.amount) };
+      case "set-flag": this.gameState.setEventFlag(effect.flag, effect.value ?? true); return { type: effect.type, flag: effect.flag, value: effect.value ?? true };
+      case "compound": return this.resolveCompound(effect.effects ?? []);
+      case "random-outcome": return this.resolveRandomOutcome(effect.outcomes ?? []);
       case "start-encounter": await this.startEncounter(effect.encounterId, effect.encounterType || "normal"); return { type: effect.type, encounterId: effect.encounterId };
       default: throw new Error(`Effet d’événement inconnu : ${effect.type}`);
     }
+  }
+
+  async resolveCompound(effects) {
+    const results = [];
+    for (const effect of effects) results.push(await this.resolve(effect));
+    return { type: "compound", results };
+  }
+
+  async resolveRandomOutcome(outcomes) {
+    if (!outcomes.length) return { type: "random-outcome", result: null };
+    const selected = outcomes[Math.floor(this.random() * outcomes.length)];
+    return { type: "random-outcome", result: await this.resolve(selected) };
+  }
+
+  pickAvailableItem(itemType = null) {
+    if (!itemType) return getRandomAvailableItem(this.gameState.inventory);
+    const available = getAvailableItems(this.gameState.inventory).filter((item) => item.type === itemType);
+    return available[Math.floor(this.random() * available.length)] ?? null;
+  }
+
+  pickAvailableItems(count, itemType = null) {
+    const pool = getAvailableItems(this.gameState.inventory).filter((item) => !itemType || item.type === itemType);
+    const selected = [];
+    while (pool.length && selected.length < count) selected.push(pool.splice(Math.floor(this.random() * pool.length), 1)[0]);
+    return selected.map((item) => item.id);
   }
 
   gainItem(itemId) {
@@ -31,10 +82,51 @@ export class EventResolver {
     return { type: "gain-item", itemId };
   }
 
-  loseRandomItem() {
-    if (!this.gameState.inventory.length) return { type: "lose-item", itemId: null };
-    const itemId = this.gameState.inventory[Math.floor(Math.random() * this.gameState.inventory.length)];
-    this.gameState.removeItem(itemId);
+  loseItem(itemId) {
+    if (!itemId || !this.gameState.removeItem(itemId)) return { type: "lose-item", itemId: null };
     return { type: "lose-item", itemId };
+  }
+
+  loseRandomItem(itemType = null) {
+    const candidates = this.gameState.inventory.filter((itemId) => !itemType || getItemById(itemId)?.type === itemType);
+    if (!candidates.length) return { type: "lose-item", itemId: null };
+    return this.loseItem(candidates[Math.floor(this.random() * candidates.length)]);
+  }
+
+  disableItem(itemId, encounters) {
+    const disabled = this.gameState.disableItem(itemId, encounters);
+    return { type: "disable-item", itemId: disabled ? itemId : null, encounters };
+  }
+
+  disableRandomItem(itemType, encounters) {
+    const candidates = this.gameState.inventory.filter((itemId) => !itemType || getItemById(itemId)?.type === itemType);
+    if (!candidates.length) return { type: "disable-item", itemId: null, encounters };
+    return this.disableItem(candidates[Math.floor(this.random() * candidates.length)], encounters);
+  }
+
+  rechargeItem(itemId) {
+    if (!itemId || !this.gameState.hasItem(itemId) || getItemById(itemId)?.type !== "rechargeable") return { type: "recharge-item", itemId: null };
+    this.itemController?.recharge(itemId);
+    return { type: "recharge-item", itemId };
+  }
+
+  rechargeRandomItem(itemType = "rechargeable") {
+    const candidates = this.gameState.inventory.filter((itemId) => getItemById(itemId)?.type === itemType);
+    if (!candidates.length) return { type: "recharge-item", itemId: null };
+    return this.rechargeItem(candidates[Math.floor(this.random() * candidates.length)]);
+  }
+
+  reduceRechargeAll(rounds) {
+    const affected = [];
+    if (!this.itemController) return { type: "reduce-recharge-all", itemIds: affected, rounds };
+    for (const itemId of this.gameState.inventory) {
+      if (getItemById(itemId)?.type !== "rechargeable") continue;
+      const state = this.itemController.ensureRuntimeState(itemId);
+      if (state.available || state.remainingRechargeRounds <= 0) continue;
+      state.remainingRechargeRounds = Math.max(0, state.remainingRechargeRounds - rounds);
+      if (state.remainingRechargeRounds === 0) this.itemController.recharge(itemId);
+      affected.push(itemId);
+    }
+    return { type: "reduce-recharge-all", itemIds: affected, rounds };
   }
 }
