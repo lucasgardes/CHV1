@@ -6,13 +6,19 @@ if (!globalThis[RUNTIME_KEY]) {
   globalThis[RUNTIME_KEY] = {
     gameState: null,
     mapController: null,
-    itemController: null
+    itemController: null,
+    mapView: null,
+    screenController: null,
+    runController: null
   };
 }
 
 const runtime = globalThis[RUNTIME_KEY];
 
-export function registerGameState(gameState) { runtime.gameState = gameState; }
-export function registerMapController(mapController) { runtime.mapController = mapController; }
-export function registerItemController(itemController) { runtime.itemController = itemController; }
+export function registerGameState(value) { runtime.gameState = value; }
+export function registerMapController(value) { runtime.mapController = value; }
+export function registerItemController(value) { runtime.itemController = value; }
+export function registerMapView(value) { runtime.mapView = value; }
+export function registerScreenController(value) { runtime.screenController = value; }
+export function registerRunController(value) { runtime.runController = value; }
 export function getGameRuntime() { return { ...runtime }; }
