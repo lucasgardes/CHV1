@@ -1,16 +1,11 @@
 "use strict";
 
-import {
-  GAME_STATUS
-} from "./game-state.js";
-import {
-  resolveFunscriptSelection
-} from "./funscript-difficulty.js";
+import { GAME_STATUS } from "./game-state.js";
+import { resolveFunscriptSelection } from "./funscript-difficulty.js";
+import { registerEncounterController } from "./runtime-access.js";
 
 function assertFunction(value, name) {
-  if (typeof value !== "function") {
-    throw new TypeError(`${name} doit être une fonction.`);
-  }
+  if (typeof value !== "function") throw new TypeError(`${name} doit être une fonction.`);
 }
 
 export class EncounterController {
@@ -61,21 +56,17 @@ export class EncounterController {
     this.onBossCompleted = onBossCompleted;
     this.onPlaybackFallback = onPlaybackFallback;
     this.currentEncounter = null;
+    registerEncounterController(this);
   }
 
-  getCurrentEncounter() {
-    return this.currentEncounter;
-  }
+  getCurrentEncounter() { return this.currentEncounter; }
 
   async load(encounterId) {
     const encounter = this.getEncounterById(encounterId);
     if (encounter === null) throw new Error(`Rencontre introuvable : ${encounterId}`);
 
     await this.stopVideoSync();
-    const funscriptSelection = this.resolveFunscript({
-      encounter,
-      gameState: this.gameState
-    });
+    const funscriptSelection = this.resolveFunscript({ encounter, gameState: this.gameState });
     const loadedEncounter = {
       ...encounter,
       selectedFunscriptDifficulty: funscriptSelection.difficulty,
@@ -94,11 +85,8 @@ export class EncounterController {
     this.itemController.resetForEncounter();
     this.onEncounterLoaded(loadedEncounter, funscriptSelection);
 
-    try {
-      await this.video.play();
-    } catch (error) {
-      this.onPlaybackFallback(loadedEncounter, error);
-    }
+    try { await this.video.play(); }
+    catch (error) { this.onPlaybackFallback(loadedEncounter, error); }
 
     return loadedEncounter;
   }
@@ -111,20 +99,13 @@ export class EncounterController {
     }
 
     const encounter = this.getEncounterById(encounterState.encounterId);
-    if (encounter === null) {
-      throw new Error(`Rencontre introuvable : ${encounterState.encounterId}`);
-    }
+    if (encounter === null) throw new Error(`Rencontre introuvable : ${encounterState.encounterId}`);
 
-    const rewardGold = Number.isFinite(encounter.rewardGold)
-      ? encounter.rewardGold
-      : 0;
-
+    const rewardGold = Number.isFinite(encounter.rewardGold) ? encounter.rewardGold : 0;
     this.gameState.completeCurrentNode();
     this.currentEncounter = null;
 
-    const rechargeResult = this.itemController.advanceRechargeCounters({
-      encounterType: encounter.type
-    });
+    const rechargeResult = this.itemController.advanceRechargeCounters({ encounterType: encounter.type });
 
     if (encounter.type === "boss") {
       this.gameState.setCurrentEncounter(null);
