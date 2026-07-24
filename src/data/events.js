@@ -2,57 +2,72 @@
 
 export const EVENTS = Object.freeze([
   {
-    id:"event-001", category:"positive", title:"Bourse abandonnée",
-    description:"Une petite bourse est posée au milieu du chemin. Elle semble étrangement facile à récupérer.",
-    choices:[
-      { id:"take-gold", label:"Prendre la bourse", effect:{ type:"gain-gold", amount:30 } },
-      { id:"leave", label:"Ne pas y toucher", effect:{ type:"none" } }
-    ]
-  },
-  {
-    id:"event-002", category:"negative", title:"Portique de saisie",
-    description:"Un portique exige un paiement immédiat. Les caméras suivent chacun de tes gestes.",
-    choices:[
-      { id:"pay", label:"Payer 25 pièces", effect:{ type:"lose-gold", amount:25 } },
-      { id:"risk", label:"Forcer le passage", effect:{ type:"difficulty-shift", amount:1 } }
-    ]
-  },
-  {
-    id:"event-003", category:"positive", title:"Casier oublié",
-    description:"Un casier entrouvert contient encore du matériel appartenant à un ancien cobaye.",
-    choices:[
-      { id:"take-item", label:"Récupérer l’objet", effect:{ type:"random-item" } },
-      { id:"take-gold", label:"Prendre uniquement les pièces", effect:{ type:"gain-gold", amount:40 } }
-    ]
-  },
-  {
-    id:"event-004", category:"negative", title:"Inspection forcée",
-    description:"Une voix ordonne de déposer un objet dans le réceptacle avant l’ouverture de la porte.",
-    choices:[
-      { id:"sacrifice", label:"Abandonner un objet aléatoire", effect:{ type:"lose-random-item" } },
-      { id:"punishment", label:"Refuser", effect:{ type:"difficulty-shift", amount:1 } }
-    ]
-  },
-  {
-    id:"event-005", category:"neutral", title:"Interférence blanche",
-    description:"L’écran affiche brièvement la silhouette d’une femme avant de revenir à la normale.",
+    id:"obedience-chest",
+    category:"discovery",
+    difficulty:"low",
+    title:"Le coffre d’obéissance",
+    description:"Une salle blanche contient uniquement un coffre métallique. L’écran au-dessus affiche : « Ne pas ouvrir. » La porte de sortie est déjà déverrouillée.",
     choices:[
       {
-        id:"listen",
-        label:"Écouter sa voix",
-        effect:{
-          type:"arm-protection",
-          galleryRewardIds:["interference-white-001"]
-        }
+        id:"leave-closed",
+        label:"Quitter la salle sans ouvrir le coffre",
+        effect:{ type:"gain-gold", amount:25 }
       },
-      { id:"ignore", label:"Continuer", effect:{ type:"none" } }
+      {
+        id:"open-chest",
+        label:"Ouvrir le coffre",
+        effect:{
+          type:"compound",
+          effects:[
+            { type:"gain-gold", amountRange:[35,45] },
+            { type:"shop-price-multiplier", multiplier:1.05 }
+          ]
+        }
+      }
     ]
   },
   {
-    id:"event-006", category:"negative", title:"Salle non répertoriée",
-    description:"La porte se verrouille derrière toi. Une vidéo inconnue se charge automatiquement.",
+    id:"two-doors",
+    category:"immediate-choice",
+    difficulty:"low",
+    title:"Les deux portes",
+    description:"Deux portes apparaissent : l’une marquée d’une pièce, l’autre d’un chronomètre.",
     choices:[
-      { id:"face", label:"Affronter l’épreuve", effect:{ type:"start-encounter", encounterId:"normal-001", encounterType:"normal" } }
+      {
+        id:"gold-door",
+        label:"Porte de la pièce — gagner 35 pièces d’or",
+        effect:{ type:"gain-gold", amount:35 }
+      },
+      {
+        id:"timer-door",
+        label:"Porte du chronomètre — réduire la prochaine rencontre de 20 secondes",
+        effect:{ type:"next-duration", seconds:-20, source:"two-doors" }
+      }
+    ]
+  },
+  {
+    id:"lighting-failure",
+    category:"incident",
+    difficulty:"low",
+    title:"La panne d’éclairage",
+    description:"Les lumières s’éteignent. Un message demande d’attendre le redémarrage, mais une porte de maintenance devient visible dans l’obscurité.",
+    choices:[
+      {
+        id:"wait",
+        label:"Attendre le redémarrage — recevoir 20 pièces d’or",
+        effect:{ type:"gain-gold", amount:20 }
+      },
+      {
+        id:"maintenance-door",
+        label:"Prendre la porte de maintenance",
+        effect:{
+          type:"random-outcome",
+          outcomes:[
+            { type:"gain-gold", amount:40 },
+            { type:"hide-interface", seconds:15, source:"lighting-failure" }
+          ]
+        }
+      }
     ]
   }
 ]);
