@@ -1,6 +1,6 @@
 "use strict";
 
-import { getItemById } from "./data/items.js";
+import { getItemById, ITEM_TYPES } from "./data/items.js";
 import { getGameRuntime } from "./game/runtime-access.js";
 import { MapItemService } from "./game/map-item-service.js";
 
@@ -11,6 +11,100 @@ function waitForRuntime() {
     return;
   }
   initialize(runtime);
+}
+
+function ensureInventoryDockStylesheet() {
+  if (document.querySelector('link[data-inventory-dock-styles="true"]')) return;
+  const link = document.createElement("link");
+  link.rel = "stylesheet";
+  link.href = "./inventory-dock.css";
+  link.dataset.inventoryDockStyles = "true";
+  document.head.append(link);
+}
+
+function createInventoryCard(runtime, itemId) {
+  const item = getItemById(itemId);
+  const card = document.createElement("article");
+  card.className = "inventory-item-card";
+  card.dataset.itemId = itemId;
+
+  const heading = document.createElement("div");
+  heading.className = "inventory-item-heading";
+
+  const name = document.createElement("strong");
+  name.textContent = `${item?.name ?? itemId}${runtime.gameState.isItemUpgraded(itemId) ? " +" : ""}`;
+  heading.append(name);
+
+  if (runtime.gameState.isItemUpgraded(itemId)) {
+    const upgraded = document.createElement("span");
+    upgraded.className = "inventory-upgraded-badge";
+    upgraded.textContent = "Amélioré";
+    heading.append(upgraded);
+  }
+
+  const description = document.createElement("p");
+  description.textContent = item?.description ?? "Description indisponible.";
+
+  card.append(heading, description);
+  return card;
+}
+
+function setupInventoryDock(runtime) {
+  ensureInventoryDockStylesheet();
+
+  const mapScreen = document.getElementById("map-screen");
+  const dock = mapScreen?.querySelector(".inventory-dock");
+  const legacyInventory = document.getElementById("inventory-value");
+  const legacySection = legacyInventory?.closest("section");
+  if (!(dock instanceof HTMLElement)) return () => {};
+
+  legacySection?.classList.add("legacy-inventory-section");
+  dock.setAttribute("aria-label", "Inventaire actuel");
+
+  const groups = new Map([
+    [ITEM_TYPES.CONSUMABLE, dock.querySelector(".inventory-group.consumables")],
+    [ITEM_TYPES.RECHARGEABLE, dock.querySelector(".inventory-group.rechargeables")],
+    [ITEM_TYPES.PASSIVE, dock.querySelector(".inventory-group.passives")]
+  ]);
+
+  const refresh = () => {
+    for (const [type, group] of groups) {
+      if (!(group instanceof HTMLElement)) continue;
+
+      const itemIds = runtime.gameState.inventory.filter((itemId) => getItemById(itemId)?.type === type);
+      const count = group.querySelector("header span");
+      if (count) count.textContent = String(itemIds.length);
+
+      let list = group.querySelector(".inventory-item-list");
+      if (!(list instanceof HTMLElement)) {
+        list = document.createElement("div");
+        list.className = "inventory-item-list";
+        group.querySelector(".inventory-placeholder")?.replaceWith(list);
+      }
+
+      list.replaceChildren();
+      if (itemIds.length === 0) {
+        const empty = document.createElement("p");
+        empty.className = "inventory-group-empty";
+        empty.textContent = "Aucun objet";
+        list.append(empty);
+        continue;
+      }
+
+      for (const itemId of itemIds) list.append(createInventoryCard(runtime, itemId));
+    }
+  };
+
+  if (legacyInventory) {
+    new MutationObserver(refresh).observe(legacyInventory, {
+      childList: true,
+      characterData: true,
+      subtree: true
+    });
+  }
+
+  refresh();
+  return refresh;
 }
 
 function renderMap(runtime) {
@@ -43,6 +137,7 @@ function addActionButton(container, label, action) {
 }
 
 function initialize(runtime) {
+  const refreshInventoryDock = setupInventoryDock(runtime);
   const service = new MapItemService(runtime);
   const mapScreen = document.getElementById("map-screen");
   const detailSidebar = mapScreen?.querySelector(".detail-sidebar");
@@ -53,6 +148,7 @@ function initialize(runtime) {
     detailSidebar.insertBefore(section, detailSidebar.querySelector(".connection-card"));
 
     const refresh = () => {
+      refreshInventoryDock();
       section.querySelectorAll("button").forEach((button) => button.remove());
       const state = runtime.gameState;
       const accessible = runtime.mapController.getAccessibleNodes();
