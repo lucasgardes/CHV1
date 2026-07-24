@@ -110,6 +110,27 @@ export const EVENTS = Object.freeze([
       { id:"wait", label:"Attendre le redémarrage — recevoir 20 pièces d’or", effect:{ type:"gain-gold", amount:20 } },
       { id:"maintenance-door", label:"Prendre la porte de maintenance", effect:{ type:"random-outcome", outcomes:[{ type:"gain-gold", amount:40 }, { type:"hide-interface", seconds:15, source:"lighting-failure" }] } }
     ]
+  },
+  {
+    id:"total-lockdown", category:"incident", difficulty:"high", title:"Le verrouillage total",
+    description:"La salle se ferme entièrement. Le système prétend qu’une défaillance menace les appareils et exige de choisir ce qui doit être protégé.",
+    choices:[
+      { id:"protect-inventory", label:"Protéger l’inventaire — payer entre 50 et 65 pièces d’or", effect:{ type:"lose-gold", amountRange:[50,65] } },
+      { id:"protect-rechargeables", label:"Protéger les systèmes rechargeables — perdre un consommable aléatoire", effect:{ type:"lose-random-item", itemType:"consumable" } },
+      {
+        id:"protect-nothing",
+        label:"Ne rien protéger — désactiver un rechargeable pendant deux rencontres",
+        effect:{
+          type:"disable-random-item-with-deferred-reward",
+          itemType:"rechargeable",
+          disableEncounters:2,
+          rewardAfterEncounters:2,
+          gold:35,
+          rewardId:"total-lockdown-compensation",
+          source:"total-lockdown"
+        }
+      }
+    ]
   }
 ]);
 
