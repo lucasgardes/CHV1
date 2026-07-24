@@ -10,12 +10,12 @@ export const EVENTS = Object.freeze([
     ]
   },
   {
-    id:"three-lockers", category:"discovery", difficulty:"low", title:"Les trois casiers",
+    id:"three-lockers", category:"discovery", difficulty:"medium", title:"Les trois casiers",
     description:"Trois casiers portent les inscriptions Sécurité, Richesse et Connaissance. Un seul peut être ouvert.",
     choices:[
-      { id:"security", label:"Ouvrir Sécurité — réduire les recharges en cours", effect:{ type:"reduce-recharge-all", rounds:1 } },
-      { id:"wealth", label:"Ouvrir Richesse — recevoir un consommable", effect:{ type:"random-item", itemType:"consumable" } },
-      { id:"knowledge", label:"Ouvrir Connaissance — gagner 25 pièces d’or", effect:{ type:"gain-gold", amount:25 } }
+      { id:"security", label:"Ouvrir Sécurité — réduire d’un round la recharge de tous les rechargeables", effect:{ type:"three-lockers-security", rounds:1 } },
+      { id:"wealth", label:"Ouvrir Richesse — recevoir entre 45 et 60 pièces d’or", effect:{ type:"gain-gold", amountRange:[45,60] } },
+      { id:"knowledge", label:"Ouvrir Connaissance — révéler les deux prochaines rencontres accessibles", effect:{ type:"reveal-next-encounters", count:2, source:"three-lockers" } }
     ]
   },
   {
