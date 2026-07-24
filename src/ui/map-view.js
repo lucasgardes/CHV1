@@ -10,6 +10,7 @@ const SYMBOLS = Object.freeze({ start:"D", normal:"N", event:"?", elite:"E", sho
 const DIFFICULTY_LABELS = Object.freeze({ warmup:"Warm-up", easy:"Facile", normal:"Normale", hard:"Difficile", boss:"Boss" });
 
 function ensureMapStylesheet(){if(document.querySelector('link[data-map-styles="true"]'))return;const link=document.createElement("link");link.rel="stylesheet";link.href="./map.css";link.dataset.mapStyles="true";document.head.append(link);}
+function formatDuration(seconds){const value=Math.max(0,Number(seconds)||0);if(!value)return"durée inconnue";const minutes=Math.floor(value/60);const remaining=Math.round(value%60);if(minutes&&remaining)return`${minutes} min ${remaining} s`;if(minutes)return`${minutes} min`;return`${remaining} s`;}
 
 export class MapView{
  constructor({mapNodeList,goldValue,inventoryValue,getItemById,onNodeSelected}){
@@ -28,7 +29,7 @@ export class MapView{
   const wrapper=document.createElement("div");wrapper.className="map-scroll-area";
   const graph=document.createElement("div");graph.className="map-graph";graph.style.width=`${MAP_WIDTH}px`;graph.style.height=`${this.getHeight(rows.length)}px`;
   const positions=this.createPositions(rows);graph.append(this.createConnections({nodes,positions,currentNodeId:gameState.currentNodeId,completedNodeIds:gameState.completedNodeIds,accessibleNodes}));
-  for(const node of nodes){const position=positions.get(node.id);if(position)graph.append(this.createNode({node,position,currentNode,accessibleNodes,completedNodeIds:gameState.completedNodeIds}));}
+  for(const node of nodes){const position=positions.get(node.id);if(position)graph.append(this.createNode({node,position,currentNode,accessibleNodes,completedNodeIds:gameState.completedNodeIds,gameState}));}
   wrapper.append(graph);this.mapNodeList.append(wrapper);window.requestAnimationFrame(()=>this.scrollToCurrent(wrapper,currentNode.id));
  }
  getHeight(rowCount){return MAP_PADDING*2+Math.max(0,rowCount-1)*ROW_GAP;}
@@ -39,12 +40,12 @@ export class MapView{
   for(const node of nodes){const source=positions.get(node.id);if(!source)continue;for(const targetId of node.nextNodeIds){const target=positions.get(targetId);if(!target)continue;const line=document.createElementNS(namespace,"line");line.setAttribute("x1",String(source.x));line.setAttribute("y1",String(source.y));line.setAttribute("x2",String(target.x));line.setAttribute("y2",String(target.y));line.classList.add("map-connection");if(completedIds.has(node.id))line.classList.add("is-completed");if(node.id===currentNodeId&&accessibleIds.has(targetId))line.classList.add("is-accessible");svg.append(line);}}
   return svg;
  }
- createNode({node,position,currentNode,accessibleNodes,completedNodeIds}){
-  const accessible=accessibleNodes.some((entry)=>entry.id===node.id);const current=node.id===currentNode.id;const completed=completedNodeIds.includes(node.id);const button=document.createElement("button");
-  button.type="button";button.className=["map-node-button",`map-node-${node.type}`,node.difficulty?`map-difficulty-${node.difficulty}`:"",current?"is-current":"",accessible?"is-accessible":"",completed?"is-completed":""].filter(Boolean).join(" ");button.dataset.nodeId=node.id;button.style.left=`${position.x}px`;button.style.top=`${position.y}px`;button.disabled=!accessible;
-  const difficultyLabel=node.difficulty?(DIFFICULTY_LABELS[node.difficulty]??node.difficulty):null;const accessibleLabel=current?", position actuelle":"";const difficultyText=difficultyLabel?`, difficulté ${difficultyLabel}`:"";button.setAttribute("aria-label",`${node.title}${difficultyText}${accessibleLabel}`);
+ createNode({node,position,currentNode,accessibleNodes,completedNodeIds,gameState}){
+  const accessible=accessibleNodes.some((entry)=>entry.id===node.id);const current=node.id===currentNode.id;const completed=completedNodeIds.includes(node.id);const reveal=gameState.getMapEncounterReveal?.(node.id)??null;const button=document.createElement("button");
+  button.type="button";button.className=["map-node-button",`map-node-${node.type}`,node.difficulty?`map-difficulty-${node.difficulty}`:"",current?"is-current":"",accessible?"is-accessible":"",completed?"is-completed":"",reveal?"is-revealed":""].filter(Boolean).join(" ");button.dataset.nodeId=node.id;button.style.left=`${position.x}px`;button.style.top=`${position.y}px`;button.disabled=!accessible;
+  const effectiveDifficulty=reveal?.difficulty??node.difficulty;const difficultyLabel=effectiveDifficulty?(DIFFICULTY_LABELS[effectiveDifficulty]??effectiveDifficulty):null;const accessibleLabel=current?", position actuelle":"";const difficultyText=difficultyLabel?`, difficulté ${difficultyLabel}`:"";const revealText=reveal?`, durée ${formatDuration(reveal.durationSeconds)}`:"";button.setAttribute("aria-label",`${node.title}${difficultyText}${revealText}${accessibleLabel}`);
   const symbol=document.createElement("span");symbol.className="map-node-symbol";symbol.textContent=SYMBOLS[node.type]??"•";const label=document.createElement("span");label.className="map-node-label";label.textContent=node.title;button.append(symbol,label);
-  if(difficultyLabel&&node.type!=="boss"){const difficulty=document.createElement("span");difficulty.className="map-node-difficulty";difficulty.textContent=difficultyLabel;button.append(difficulty);}
+  if(reveal){const details=document.createElement("span");details.className="map-node-difficulty map-node-reveal";details.textContent=`Révélé · ${difficultyLabel??"?"} · ${formatDuration(reveal.durationSeconds)}`;button.append(details);}else if(difficultyLabel&&node.type!=="boss"){const difficulty=document.createElement("span");difficulty.className="map-node-difficulty";difficulty.textContent=difficultyLabel;button.append(difficulty);}
   if(accessible)button.addEventListener("click",()=>{if(this.navigationLocked)return;this.navigationLocked=true;for(const candidate of this.mapNodeList.querySelectorAll(".map-node-button.is-accessible"))candidate.disabled=true;const navigation=this.onNodeSelected(node.id);Promise.resolve(navigation).catch(()=>{this.navigationLocked=false;for(const candidate of this.mapNodeList.querySelectorAll(".map-node-button.is-accessible"))candidate.disabled=false;});});
   return button;
  }
