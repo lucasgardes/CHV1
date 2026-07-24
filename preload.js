@@ -15,3 +15,11 @@ contextBridge.exposeInMainWorld("chv1Collection", {
   get: () => ipcRenderer.invoke("collection:get"),
   update: (payload) => ipcRenderer.invoke("collection:update", payload)
 });
+
+contextBridge.exposeInMainWorld("chv1Playback", {
+  record: (payload) => ipcRenderer.invoke("playback:record", payload)
+});
+
+contextBridge.exposeInMainWorld("chv1VideoStats", {
+  get: () => ipcRenderer.invoke("video-stats:get")
+});
