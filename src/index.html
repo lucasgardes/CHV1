@@ -2,7 +2,6 @@
 <html lang="fr">
   <head>
     <meta charset="UTF-8" />
-
     <meta
       http-equiv="Content-Security-Policy"
       content="
@@ -13,393 +12,138 @@
         connect-src 'self' ws://127.0.0.1:12345 ws://localhost:12345
       "
     />
-
-    <meta
-      name="viewport"
-      content="width=device-width, initial-scale=1.0"
-    />
-
-    <title>CHV1 — Test vidéo</title>
-
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>CHV1 — Video Ascension</title>
     <link rel="stylesheet" href="./style.css" />
+    <link rel="stylesheet" href="./encounter.css" />
     <script src="./renderer.bundle.js" defer></script>
   </head>
-
   <body>
     <main class="app-shell">
       <header class="app-header">
-        <div>
-          <p class="app-eyebrow">CHV1</p>
-          <h1>Video Ascension</h1>
-        </div>
-
+        <a class="brand" href="#" aria-label="CHV1">
+          <span class="brand-mark" aria-hidden="true">▶</span>
+          <span><strong>CHV1</strong><small>VIDEO ASCENSION</small></span>
+        </a>
+        <nav class="main-navigation" aria-label="Navigation principale">
+          <button class="navigation-tab is-active" type="button">Carte</button>
+          <button class="navigation-tab" type="button" disabled>Inventaire</button>
+          <button class="navigation-tab" type="button" disabled>Réalisations</button>
+          <button class="navigation-tab" type="button" disabled>Codex</button>
+        </nav>
         <div class="header-status">
-          <span
-            id="connection-indicator"
-            class="connection-indicator"
-          ></span>
-
-          <span id="intiface-status">
-            Déconnecté
-          </span>
-
-          <button
-            id="open-settings-button"
-            class="secondary-button"
-            type="button"
-          >
-            Connexion
-          </button>
+          <span id="connection-indicator" class="connection-indicator"></span>
+          <span id="intiface-status">Déconnecté</span>
+          <button id="open-settings-button" class="icon-button" type="button" aria-label="Connexion et paramètres">⚙</button>
         </div>
       </header>
 
-      <section
-        id="map-screen"
-        class="game-screen"
-      >
-        <header class="screen-header">
-          <div>
-            <p class="screen-kicker">
-              Progression
-            </p>
+      <section id="map-screen" class="game-screen map-screen">
+        <aside class="run-sidebar panel">
+          <div class="sidebar-heading"><p class="app-eyebrow">Partie actuelle</p><strong>RUN #0001</strong></div>
+          <dl class="run-stat-list">
+            <div><dt>Statut</dt><dd><span class="status-dot"></span> En cours</dd></div>
+            <div><dt>Or</dt><dd class="gold-stat"><span>●</span><strong id="gold-value">50</strong></dd></div>
+            <div><dt>Progression</dt><dd>Prototype</dd></div>
+            <div class="progress-stat"><dt>Niveau actuel</dt><dd>Carte de test</dd><span class="progress-track"><span></span></span></div>
+            <div><dt>Temps vidéo estimé</dt><dd>À calculer en phase 2</dd></div>
+          </dl>
+          <section class="modifier-section"><h3>Modificateurs actifs</h3><p class="empty-state">Aucun modificateur pour le moment.</p></section>
+        </aside>
 
-            <h2>Carte</h2>
+        <section class="map-workspace panel">
+          <header class="workspace-header">
+            <div><p class="screen-kicker">Progression</p><h1>Carte</h1></div>
+            <div class="map-badge">Structure temporaire</div>
+          </header>
+          <div class="prototype-map-notice">
+            <span class="notice-icon">◇</span>
+            <div><strong>Carte graphique en préparation</strong><p>La phase 1 installe la nouvelle interface. Les chemins complets et les connexions seront ajoutés pendant la phase 2.</p></div>
           </div>
-
-          <div class="run-resources">
-            <div class="resource-card">
-              <span>Or</span>
-              <strong id="gold-value">50</strong>
-            </div>
-
-            <div class="resource-card inventory-card">
-              <span>Objets</span>
-              <strong id="inventory-value">
-                Aucun
-              </strong>
-            </div>
-          </div>
-        </header>
-
-        <div
-          id="map-node-list"
-          class="map-node-list"
-        ></div>
-      </section>
-
-      <section
-        id="event-screen"
-        class="game-screen centered-screen"
-        hidden
-      >
-        <p class="screen-kicker">
-          Rencontre inconnue
-        </p>
-
-        <h2 id="event-title">
-          Événement mystère
-        </h2>
-
-        <p
-          id="event-description"
-          class="screen-description"
-        ></p>
-
-        <div
-          id="event-choice-list"
-          class="choice-list"
-        ></div>
-      </section>
-
-      <section
-        id="reward-screen"
-        class="game-screen centered-screen"
-        hidden
-      >
-        <p class="screen-kicker">
-          Victoire
-        </p>
-
-        <h2>Récompense d’élite</h2>
-
-        <p class="screen-description">
-          Choisis une récompense.
-        </p>
-
-        <div
-          id="reward-choice-list"
-          class="choice-list"
-        ></div>
-      </section>
-
-      <section
-        id="encounter-screen"
-        class="game-screen encounter-screen"
-        hidden
-      >
-        <header class="encounter-header">
-          <div>
-            <p class="screen-kicker">
-              Rencontre en cours
-            </p>
-
-            <h2 id="encounter-title">
-              Rencontre
-            </h2>
-          </div>
-
-          <div class="video-information">
-            <p id="video-status">Prêt</p>
-
-            <p>
-              <span id="current-time">00:00</span>
-              /
-              <span id="duration">00:00</span>
-            </p>
-          </div>
-        </header>
-
-        <div class="video-container">
-          <video
-            id="round-video"
-            preload="metadata"
-          >
-            Ton ordinateur ne peut pas lire cette vidéo.
-          </video>
-        </div>
-
-        <section class="active-items-panel">
-          <div>
-            <h3>Objets utilisables</h3>
-
-            <p id="active-item-status">
-              Aucun objet utilisable.
-            </p>
-          </div>
-
-          <div
-            id="active-item-list"
-            class="active-item-list"
-          ></div>
+          <div id="map-node-list" class="map-node-list"></div>
+          <footer class="map-legend" aria-label="Légende de la carte">
+            <span><i class="legend-dot normal"></i> Rencontre</span>
+            <span><i class="legend-dot elite"></i> Élite</span>
+            <span><i class="legend-dot mystery"></i> Mystère</span>
+            <span><i class="legend-dot shop"></i> Boutique</span>
+            <span><i class="legend-dot camp"></i> Feu de camp</span>
+            <span><i class="legend-dot boss"></i> Boss</span>
+          </footer>
         </section>
 
-        <div class="controls">
-          <button
-            id="backward-button"
-            class="secondary-button"
-            type="button"
-          >
-            −5 secondes
-          </button>
+        <aside class="detail-sidebar panel">
+          <div class="detail-symbol">?</div>
+          <p class="screen-kicker">Case sélectionnée</p>
+          <h2>Prochaine destination</h2>
+          <p class="detail-copy">Sélectionne une case accessible sur la carte pour continuer la partie.</p>
+          <div class="detail-divider"></div>
+          <section><h3>Inventaire actuel</h3><p id="inventory-value" class="inventory-summary">Aucun</p></section>
+          <section class="connection-card"><span class="connection-indicator"></span><div><strong>Intiface Central</strong><p>La connexion reste accessible depuis l’icône en haut à droite.</p></div></section>
+        </aside>
 
-          <button
-            id="play-button"
-            class="primary-button"
-            type="button"
-          >
-            Lecture
-          </button>
+        <section class="inventory-dock panel">
+          <article class="inventory-group consumables"><header><h3>Consommables</h3><span>0</span></header><div class="inventory-placeholder">Aucun objet</div></article>
+          <article class="inventory-group rechargeables"><header><h3>Rechargeables</h3><span>0</span></header><div class="inventory-placeholder">Aucun objet</div></article>
+          <article class="inventory-group passives"><header><h3>Passifs</h3><span>0</span></header><div class="inventory-placeholder">Aucun objet</div></article>
+        </section>
+      </section>
 
-          <button
-            id="forward-button"
-            class="secondary-button"
-            type="button"
-          >
-            +5 secondes
-          </button>
+      <section id="event-screen" class="game-screen centered-screen modal-screen" hidden>
+        <div class="modal-card panel"><p class="screen-kicker">Rencontre inconnue</p><h2 id="event-title">Événement mystère</h2><p id="event-description" class="screen-description"></p><div id="event-choice-list" class="choice-list"></div></div>
+      </section>
 
-          <button
-            id="restart-button"
-            class="secondary-button"
-            type="button"
-          >
-            Recommencer
-          </button>
+      <section id="reward-screen" class="game-screen centered-screen modal-screen" hidden>
+        <div class="modal-card panel"><p class="screen-kicker">Victoire</p><h2>Récompense d’élite</h2><p class="screen-description">Choisis une récompense.</p><div id="reward-choice-list" class="choice-list"></div></div>
+      </section>
+
+      <section id="encounter-screen" class="game-screen encounter-screen immersive-encounter" hidden>
+        <div class="encounter-stage">
+          <div class="video-container encounter-video"><video id="round-video" preload="metadata">Ton ordinateur ne peut pas lire cette vidéo.</video></div>
+
+          <header class="encounter-hud-top">
+            <div class="encounter-identity">
+              <span class="encounter-emblem" aria-hidden="true">◆</span>
+              <div><p class="screen-kicker">Rencontre en cours</p><h2 id="encounter-title">Rencontre</h2></div>
+            </div>
+            <div class="video-information"><p id="video-status">Prêt</p><p><span id="current-time">00:00</span> / <span id="duration">00:00</span></p></div>
+            <div class="encounter-device-state"><span class="connection-indicator"></span><span>Intiface</span></div>
+          </header>
+
+          <div class="encounter-hover-zone" aria-hidden="true"></div>
+          <aside class="active-items-panel encounter-item-drawer">
+            <div class="drawer-handle" aria-hidden="true"><span>›</span></div>
+            <div class="drawer-content">
+              <div class="drawer-heading"><p class="screen-kicker">Accès rapide</p><h3>Objets utilisables</h3><p id="active-item-status">Aucun objet utilisable.</p></div>
+              <div id="active-item-list" class="active-item-list"></div>
+            </div>
+          </aside>
+
+          <div class="encounter-hover-help"><span class="help-icon">i</span><span>Survole le bord gauche pour afficher les objets.</span></div>
+
+          <div class="controls encounter-controls">
+            <button id="backward-button" class="minimal-control" type="button" aria-label="Reculer de 5 secondes">−5</button>
+            <button id="play-button" class="play-control" type="button" aria-label="Lecture ou pause">▶</button>
+            <button id="forward-button" class="minimal-control" type="button" aria-label="Avancer de 5 secondes">+5</button>
+            <button id="restart-button" class="minimal-control restart-control" type="button">Recommencer</button>
+          </div>
         </div>
       </section>
 
-      <aside
-        id="settings-panel"
-        class="settings-panel"
-        hidden
-      >
-        <div class="settings-dialog">
-          <header class="settings-header">
-            <div>
-              <p class="screen-kicker">
-                Configuration
-              </p>
-
-              <h2>Intiface Central</h2>
-            </div>
-
-            <button
-              id="close-settings-button"
-              class="icon-button"
-              type="button"
-              aria-label="Fermer"
-            >
-              ×
-            </button>
-          </header>
-
-          <label class="address-field">
-            Adresse du serveur
-
-            <input
-              id="server-address"
-              type="text"
-              value="ws://127.0.0.1:12345"
-              spellcheck="false"
-            />
-          </label>
-
+      <aside id="settings-panel" class="settings-panel" hidden>
+        <div class="settings-dialog panel">
+          <header class="settings-header"><div><p class="screen-kicker">Configuration</p><h2>Intiface Central</h2></div><button id="close-settings-button" class="icon-button" type="button" aria-label="Fermer">×</button></header>
+          <label class="address-field">Adresse du serveur<input id="server-address" type="text" value="ws://127.0.0.1:12345" spellcheck="false" /></label>
           <div class="intiface-controls">
-            <button
-              id="connect-button"
-              type="button"
-            >
-              Se connecter
-            </button>
-
-            <button
-              id="scan-button"
-              type="button"
-              disabled
-            >
-              Rechercher les appareils
-            </button>
-
-            <button
-              id="stop-scan-button"
-              type="button"
-              disabled
-            >
-              Arrêter la recherche
-            </button>
-
-            <button
-              id="disconnect-button"
-              type="button"
-              disabled
-            >
-              Se déconnecter
-            </button>
+            <button id="connect-button" type="button">Se connecter</button>
+            <button id="scan-button" type="button" disabled>Rechercher les appareils</button>
+            <button id="stop-scan-button" type="button" disabled>Arrêter la recherche</button>
+            <button id="disconnect-button" type="button" disabled>Se déconnecter</button>
           </div>
-
-          <section class="device-section">
-            <h3>Appareils détectés</h3>
-
-            <p id="scan-status">
-              Connecte d’abord CHV1 à Intiface Central.
-            </p>
-
-            <ul
-              id="device-list"
-              class="device-list"
-            >
-              <li class="empty-device-message">
-                Aucun appareil
-              </li>
-            </ul>
-          </section>
-
+          <section class="device-section"><h3>Appareils détectés</h3><p id="scan-status">Connecte d’abord CHV1 à Intiface Central.</p><ul id="device-list" class="device-list"><li class="empty-device-message">Aucun appareil</li></ul></section>
           <details class="developer-tools">
-            <summary>
-              Outils développeur
-            </summary>
-
-            <section class="funscript-panel">
-              <div class="device-simulator">
-                <div
-                  id="device-position"
-                  class="device-position"
-                ></div>
-              </div>
-
-              <div class="funscript-information">
-                <h3>Simulateur funscript</h3>
-
-                <p>
-                  État :
-                  <strong id="funscript-status">
-                    Chargement...
-                  </strong>
-                </p>
-
-                <p>
-                  Position :
-                  <strong id="position-value">0</strong>
-                  %
-                </p>
-
-                <p>
-                  Action :
-                  <strong id="action-index">
-                    0 / 0
-                  </strong>
-                </p>
-              </div>
-            </section>
-
-            <section class="manual-device-controls">
-              <h3>Test manuel</h3>
-
-              <p id="device-control-status">
-                Aucun appareil sélectionné.
-              </p>
-
-              <div class="device-control-buttons">
-                <button
-                  id="low-position-button"
-                  type="button"
-                  disabled
-                >
-                  Position basse
-                </button>
-
-                <button
-                  id="middle-position-button"
-                  type="button"
-                  disabled
-                >
-                  Position centrale
-                </button>
-
-                <button
-                  id="high-position-button"
-                  type="button"
-                  disabled
-                >
-                  Position haute
-                </button>
-
-                <button
-                  id="test-funscript-button"
-                  type="button"
-                  disabled
-                >
-                  Tester le funscript
-                </button>
-
-                <button
-                  id="stop-funscript-button"
-                  type="button"
-                  disabled
-                >
-                  Arrêter le funscript
-                </button>
-
-                <button
-                  id="emergency-stop-button"
-                  class="emergency-button"
-                  type="button"
-                  disabled
-                >
-                  ARRÊT
-                </button>
-              </div>
-            </section>
+            <summary>Outils développeur</summary>
+            <section class="funscript-panel"><div class="device-simulator"><div id="device-position" class="device-position"></div></div><div class="funscript-information"><h3>Simulateur funscript</h3><p>État : <strong id="funscript-status">Chargement...</strong></p><p>Position : <strong id="position-value">0</strong> %</p><p>Action : <strong id="action-index">0 / 0</strong></p></div></section>
+            <section class="manual-device-controls"><h3>Test manuel</h3><p id="device-control-status">Aucun appareil sélectionné.</p><div class="device-control-buttons"><button id="low-position-button" type="button" disabled>Position basse</button><button id="middle-position-button" type="button" disabled>Position centrale</button><button id="high-position-button" type="button" disabled>Position haute</button><button id="test-funscript-button" type="button" disabled>Tester le funscript</button><button id="stop-funscript-button" type="button" disabled>Arrêter le funscript</button><button id="emergency-stop-button" class="emergency-button" type="button" disabled>ARRÊT</button></div></section>
           </details>
         </div>
       </aside>
