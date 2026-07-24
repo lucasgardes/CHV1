@@ -35,9 +35,19 @@ export class MapController {
     this.gameState.moveToNode(targetNode.id); return targetNode;
   }
   revealHiddenEncounter() {
-    const hiddenConnection = this.map.hiddenConnection; if (!hiddenConnection) return null;
-    const sourceNode = this.getNodeById(hiddenConnection.sourceNodeId); const hiddenNode = this.getNodeById(hiddenConnection.nodeId);
+    const hiddenConnection = this.map.hiddenConnection;
+    if (!hiddenConnection) return null;
+
+    const sourceNode = this.getNodeById(hiddenConnection.sourceNodeId);
+    const hiddenNode = this.getNodeById(hiddenConnection.nodeId);
     if (!sourceNode || !hiddenNode) return null;
-    hiddenNode.hidden = false; if (!sourceNode.nextNodeIds.includes(hiddenNode.id)) sourceNode.nextNodeIds.push(hiddenNode.id); return hiddenNode;
+
+    const alreadyConnected = sourceNode.nextNodeIds.includes(hiddenNode.id);
+    const alreadyRevealed = hiddenNode.hidden !== true;
+    if (alreadyConnected && alreadyRevealed) return null;
+
+    hiddenNode.hidden = false;
+    if (!alreadyConnected) sourceNode.nextNodeIds.push(hiddenNode.id);
+    return hiddenNode;
   }
 }
