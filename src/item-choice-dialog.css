@@ -1,0 +1,105 @@
+.item-choice-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  background: rgba(3, 5, 9, .78);
+  backdrop-filter: blur(8px);
+}
+
+.item-choice-dialog {
+  width: min(560px, 100%);
+  overflow: hidden;
+  border: 1px solid rgba(173, 108, 255, .55);
+  border-radius: 14px;
+  color: #eef0f5;
+  background: linear-gradient(145deg, rgba(20, 24, 33, .99), rgba(9, 12, 18, .99));
+  box-shadow: 0 28px 90px rgba(0, 0, 0, .65), 0 0 34px rgba(173, 108, 255, .14);
+}
+
+.item-choice-dialog__header {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 22px 24px 16px;
+  border-bottom: 1px solid #28303b;
+}
+
+.item-choice-dialog__icon {
+  width: 48px;
+  height: 48px;
+  display: grid;
+  place-items: center;
+  flex: 0 0 auto;
+  border: 1px solid #ad6cff;
+  border-radius: 50%;
+  color: #c89cff;
+  font-size: 24px;
+  background: radial-gradient(circle, rgba(173, 108, 255, .24), transparent 70%);
+}
+
+.item-choice-dialog__eyebrow {
+  margin: 0 0 4px;
+  color: #9aa4b1;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: .14em;
+  text-transform: uppercase;
+}
+
+.item-choice-dialog h2 {
+  margin: 0;
+  font-size: 23px;
+}
+
+.item-choice-dialog__body {
+  padding: 22px 24px;
+}
+
+.item-choice-dialog__message {
+  margin: 0;
+  color: #d5dbe4;
+  font-size: 16px;
+  line-height: 1.6;
+}
+
+.item-choice-dialog__details {
+  margin: 18px 0 0;
+  padding: 14px 16px;
+  border: 1px solid #303947;
+  border-radius: 9px;
+  color: #aeb7c5;
+  background: rgba(8, 12, 17, .72);
+  white-space: pre-line;
+  line-height: 1.5;
+}
+
+.item-choice-dialog__actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+  padding: 0 24px 24px;
+}
+
+.item-choice-dialog__actions button {
+  min-height: 48px;
+  font-weight: 700;
+}
+
+.item-choice-dialog__activate {
+  border-color: #ad6cff;
+  background: linear-gradient(180deg, #7842b8, #572b8a);
+  box-shadow: 0 0 22px rgba(173, 108, 255, .18);
+}
+
+.item-choice-dialog__decline {
+  background: #12171e;
+}
+
+@media (max-width: 620px) {
+  .item-choice-dialog__actions {
+    grid-template-columns: 1fr;
+  }
+}
