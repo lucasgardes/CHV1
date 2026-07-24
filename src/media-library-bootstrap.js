@@ -16,22 +16,31 @@ async function initialize() {
   controller.getEncounterById = (encounterId) => {
     const fallback = originalGetEncounterById(encounterId);
     if (!fallback) return null;
-    const local = library.select({ type:fallback.type, difficulty:fallback.difficulty, requireFunscript:true });
-    if (!local) return fallback;
+    const requestedDifficulty = fallback.defaultFunscriptDifficulty ?? fallback.difficulty ?? "normal";
+    const local = library.select({ type:fallback.type, difficulty:requestedDifficulty, requireFunscript:true });
+    if (!local || local.type === "secret") return fallback;
+    const selectedDifficulty = local.selectedDifficulty ?? requestedDifficulty;
     return {
       ...fallback,
       id:`local:${local.id}`,
+      mediaId:local.id,
       title:local.title,
       videoPath:local.videoPath,
-      funscripts:{ easy:local.funscriptPath, medium:local.funscriptPath, hard:local.funscriptPath },
-      defaultFunscriptDifficulty:fallback.defaultFunscriptDifficulty,
-      durationSeconds:local.durationSeconds || fallback.durationSeconds
+      funscripts:{ ...local.funscripts },
+      defaultFunscriptDifficulty:selectedDifficulty,
+      requestedDifficulty:local.requestedDifficulty,
+      selectedDifficulty,
+      fallbackUsed:local.fallbackUsed,
+      durationSeconds:local.durationSeconds || fallback.durationSeconds,
+      themes:local.themes,
+      performers:local.performers,
+      playbackContext:local.type === "event" ? "event" : "run"
     };
   };
 
   const status = document.getElementById("video-status");
   if (status && diagnostics.missingDirectory) status.textContent = "Bibliothèque locale absente : médias intégrés utilisés.";
-  else if (status && diagnostics.readyCount === 0) status.textContent = "Aucune paire vidéo/funscript locale valide : médias intégrés utilisés.";
+  else if (status && diagnostics.readyCount === 0) status.textContent = "Aucune vidéo locale valide : médias intégrés utilisés.";
 }
 
 window.addEventListener("DOMContentLoaded", initialize);
