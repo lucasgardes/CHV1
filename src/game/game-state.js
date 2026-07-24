@@ -1,5 +1,6 @@
 "use strict";
 
+import { ITEMS } from "../data/items.js";
 import { registerGameState } from "./runtime-access.js";
 
 export const GAME_STATUS=Object.freeze({MENU:"menu",MAP:"map",ENCOUNTER:"encounter",REWARD:"reward",GAME_OVER:"game-over",VICTORY:"victory",EVENT:"event",SHOP:"shop",CAMPFIRE:"campfire",BLESSING:"blessing"});
@@ -8,7 +9,7 @@ function createItemRunState(){return{metronomeStreak:0,rescueUsedInEncounter:fal
 export class GameState{
  constructor(){this.reset();registerGameState(this);}
  reset(){this.status=GAME_STATUS.MENU;this.gold=50;this.inventory=[];this.upgradedItemIds=[];this.activeBlessingId=null;this.totalGoldEarned=0;this.totalGoldSpent=0;this.totalGoldLost=0;this.elitesDefeated=0;this.consumedDefeatProtectionIds=[];this.currentNodeId=null;this.completedNodeIds=[];this.currentEncounter=null;this.nextFunscriptDifficultyShift=0;this.nextEncounterProtectionArmed=false;this.seenEventIds=[];this.pendingEncounterModifiers=[];this.deferredEncounterRewards=[];this.revealedMapEncounters={};this.disabledItems={};this.cobayeRelations={};this.eventFlags={};this.runFlags={};this.nextShopPriceMultiplier=1;this.nextEliteRareChanceBonus=0;this.campfiresEncountered=0;this.campfireNarrativeNodeIds=[];this.campfireNodeIdsSeen=[];this.itemRunState=createItemRunState();}
- startRun(startNodeId="start"){this.reset();this.status=GAME_STATUS.MAP;this.currentNodeId=startNodeId;}
+ startRun(startNodeId="start"){this.reset();this.status=GAME_STATUS.MAP;this.currentNodeId=startNodeId;this.inventory=ITEMS.map((item)=>item.id);}
  setStatus(status){if(!Object.values(GAME_STATUS).includes(status))throw new Error(`Statut de partie invalide : ${status}`);this.status=status;}
  setCurrentEncounter(encounter){this.currentEncounter=encounter;}
  recordEncounterCheckpoint(entry){if(entry)this.itemRunState.encounterHistory.push({...entry});}
