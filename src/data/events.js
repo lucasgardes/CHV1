@@ -80,6 +80,30 @@ export const EVENTS = Object.freeze([
     ]
   },
   {
+    id:"wounded-prisoner", category:"other-prisoner", difficulty:"medium", title:"Le faux blessé",
+    description:"Un cobaye est allongé au sol et affirme avoir été abandonné par les scientifiques. Son récit semble plausible, mais quelque chose paraît anormal.",
+    choices:[
+      {
+        id:"approach",
+        label:"S’approcher immédiatement",
+        effect:{
+          type:"nested-choice",
+          title:"Le vol",
+          setup:{ type:"random-owned-item", itemType:"consumable" },
+          prompt:"Le cobaye bondit et s’empare de « $contextItemName ». Il exige 20 pièces d’or pour le rendre.",
+          emptyPrompt:"Le cobaye tente de voler quelque chose, mais tu ne possèdes aucun consommable. Il recule et abandonne.",
+          emptyLabel:"Quitter la salle",
+          choices:[
+            { id:"pay-to-recover", label:"Payer 20 pièces d’or et récupérer $contextItemName", requiresGold:20, effect:{ type:"lose-gold", amount:20 } },
+            { id:"let-him-keep-it", label:"Refuser de payer et perdre $contextItemName", effect:{ type:"lose-item", itemId:"$contextItemId" } }
+          ]
+        }
+      },
+      { id:"question-from-distance", label:"L’interroger à distance", effect:{ type:"gain-gold", amount:25 } },
+      { id:"leave", label:"Quitter la salle", effect:{ type:"none" } }
+    ]
+  },
+  {
     id:"lighting-failure", category:"incident", difficulty:"low", title:"La panne d’éclairage",
     description:"Les lumières s’éteignent. Un message demande d’attendre le redémarrage, mais une porte de maintenance devient visible dans l’obscurité.",
     choices:[
