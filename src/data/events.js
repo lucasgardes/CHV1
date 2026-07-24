@@ -37,7 +37,14 @@ export const EVENTS = Object.freeze([
     id:"event-005", category:"neutral", title:"Interférence blanche",
     description:"L’écran affiche brièvement la silhouette d’une femme avant de revenir à la normale.",
     choices:[
-      { id:"listen", label:"Écouter sa voix", effect:{ type:"arm-protection" } },
+      {
+        id:"listen",
+        label:"Écouter sa voix",
+        effect:{
+          type:"arm-protection",
+          galleryRewardIds:["interference-white-001"]
+        }
+      },
       { id:"ignore", label:"Continuer", effect:{ type:"none" } }
     ]
   },
