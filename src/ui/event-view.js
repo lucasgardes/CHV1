@@ -53,6 +53,26 @@ export class EventView {
     this.eventChoiceList.append(button);
   }
 
+  async unlockGalleryRewards(choice) {
+    const rewardIds = Array.isArray(choice?.effect?.galleryRewardIds)
+      ? choice.effect.galleryRewardIds.filter(Boolean)
+      : [];
+    for (const imageId of rewardIds) {
+      window.dispatchEvent(new CustomEvent("chv1:image-unlocked", {
+        detail: {
+          id: imageId,
+          origin: `Événement : ${this.currentEvent?.title ?? this.currentEvent?.id ?? "inconnu"}`,
+          snapshot: {
+            eventId: this.currentEvent?.id ?? null,
+            eventTitle: this.currentEvent?.title ?? null,
+            choiceId: choice.id ?? null,
+            choiceLabel: choice.label ?? null
+          }
+        }
+      }));
+    }
+  }
+
   async resolveChoice(choice) {
     const runtime = getGameRuntime();
     const { gameState, itemController, mapController, screenController, mapView } = runtime;
@@ -76,6 +96,7 @@ export class EventView {
     const result = await resolver.resolve(choice.effect);
     if (choice.effect.type === "start-encounter") return;
 
+    await this.unlockGalleryRewards(choice);
     gameState.completeCurrentNode();
     gameState.setStatus(GAME_STATUS.MAP);
     screenController.showMap();
@@ -87,7 +108,17 @@ export class EventView {
 
     const status = document.getElementById("video-status");
     if (status) status.textContent = this.describeResult(result);
-    window.dispatchEvent(new CustomEvent("chv1:event-completed", { detail: { nodeId: this.eventNodeId, result } }));
+    window.dispatchEvent(new CustomEvent("chv1:event-completed", {
+      detail: {
+        nodeId: this.eventNodeId,
+        eventId: this.currentEvent?.id ?? null,
+        eventTitle: this.currentEvent?.title ?? null,
+        choiceId: choice.id ?? null,
+        choiceLabel: choice.label ?? null,
+        galleryRewardIds: [...(choice.effect.galleryRewardIds ?? [])],
+        result
+      }
+    }));
   }
 
   getEventItemActions() {
