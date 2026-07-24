@@ -24,6 +24,7 @@ export class EventResolver{
   case"hide-interface":return{type:effect.type,modifier:this.gameState.addEncounterModifier({source:effect.source??"event",hideInterfaceSeconds:effect.seconds,encountersRemaining:1})};
   case"shop-price-multiplier":this.gameState.multiplyNextShopPrices(effect.multiplier);return{type:effect.type,multiplier:effect.multiplier,blessingGold:Number(effect.multiplier)<1?this.rewardCuriosity():0};
   case"elite-rare-bonus":this.gameState.addNextEliteRareChanceBonus(effect.amount);return{type:effect.type,amount:effect.amount,blessingGold:this.rewardCuriosity()};
+  case"queue-deferred-reward":return{type:effect.type,reward:this.gameState.queueDeferredEncounterReward({id:effect.id,source:effect.source,gold:effect.gold,encounters:effect.encounters})};
   case"disable-item":return this.disableItem(effect.itemId,effect.encounters??2);
   case"disable-random-item":return this.disableRandomItem(effect.itemType,effect.encounters??2);
   case"recharge-item":{const result=this.rechargeItem(effect.itemId);if(result.itemId)result.blessingGold=this.rewardCuriosity();return result;}
