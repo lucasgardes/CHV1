@@ -3,19 +3,13 @@
 import { ITEMS } from "../data/items.js";
 import { registerGameState } from "./runtime-access.js";
 
-const TEST_STARTING_ITEM_EXCLUSIONS = new Set([
-  "external-battery",
-  "last-act-key",
-  "scout"
-]);
-
 export const GAME_STATUS=Object.freeze({MENU:"menu",MAP:"map",ENCOUNTER:"encounter",REWARD:"reward",GAME_OVER:"game-over",VICTORY:"victory",EVENT:"event",SHOP:"shop",CAMPFIRE:"campfire",BLESSING:"blessing"});
 function normalizeModifier(modifier={}){return{source:modifier.source??"unknown",encountersRemaining:Math.max(1,Number(modifier.encountersRemaining)||1),durationSeconds:Number(modifier.durationSeconds)||0,rewardGoldFlat:Number(modifier.rewardGoldFlat)||0,rewardMultiplier:Number.isFinite(modifier.rewardMultiplier)?modifier.rewardMultiplier:1,intensityShift:Number(modifier.intensityShift)||0,hideInterfaceSeconds:Math.max(0,Number(modifier.hideInterfaceSeconds)||0)};}
 function createItemRunState(){return{metronomeStreak:0,rescueUsedInEncounter:false,doubleCommandUsed:false,doubleCommandPendingItemId:null,fastPathRows:[],recyclerReady:true,directorChoice:null,utilitySlotsUsed:[],encounterHistory:[]};}
 export class GameState{
  constructor(){this.reset();registerGameState(this);}
  reset(){this.status=GAME_STATUS.MENU;this.gold=50;this.inventory=[];this.upgradedItemIds=[];this.activeBlessingId=null;this.totalGoldEarned=0;this.totalGoldSpent=0;this.totalGoldLost=0;this.elitesDefeated=0;this.consumedDefeatProtectionIds=[];this.currentNodeId=null;this.completedNodeIds=[];this.currentEncounter=null;this.nextFunscriptDifficultyShift=0;this.nextEncounterProtectionArmed=false;this.seenEventIds=[];this.pendingEncounterModifiers=[];this.deferredEncounterRewards=[];this.revealedMapEncounters={};this.disabledItems={};this.cobayeRelations={};this.eventFlags={};this.runFlags={};this.nextShopPriceMultiplier=1;this.nextEliteRareChanceBonus=0;this.campfiresEncountered=0;this.campfireNarrativeNodeIds=[];this.campfireNodeIdsSeen=[];this.itemRunState=createItemRunState();}
- startRun(startNodeId="start"){this.reset();this.status=GAME_STATUS.MAP;this.currentNodeId=startNodeId;this.inventory=ITEMS.filter((item)=>!TEST_STARTING_ITEM_EXCLUSIONS.has(item.id)).map((item)=>item.id);}
+ startRun(startNodeId="start"){this.reset();this.status=GAME_STATUS.MAP;this.currentNodeId=startNodeId;this.inventory=ITEMS.map((item)=>item.id);}
  setStatus(status){if(!Object.values(GAME_STATUS).includes(status))throw new Error(`Statut de partie invalide : ${status}`);this.status=status;}
  setCurrentEncounter(encounter){this.currentEncounter=encounter;}
  recordEncounterCheckpoint(entry){if(entry)this.itemRunState.encounterHistory.push({...entry});}
