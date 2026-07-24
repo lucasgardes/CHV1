@@ -34,12 +34,13 @@ export class ScreenController {
   }
 
   hideGameScreens() {
-    this.mapScreen.hidden = true;
-    this.encounterScreen.hidden = true;
-    this.eventScreen.hidden = true;
-    this.rewardScreen.hidden = true;
-    if (this.shopScreen) this.shopScreen.hidden = true;
-    if (this.campfireScreen) this.campfireScreen.hidden = true;
+    // Les écrans ajoutés par les modules de progression (espace blanc,
+    // bénédictions, fins, etc.) utilisent eux aussi la classe game-screen.
+    // Les masquer dynamiquement évite qu'une surcouche plein écran reste
+    // au-dessus de la carte après une transition.
+    for (const screen of document.querySelectorAll(".game-screen")) {
+      if (screen instanceof HTMLElement) screen.hidden = true;
+    }
   }
 
   showMap() { this.hideGameScreens(); this.mapScreen.hidden = false; }
