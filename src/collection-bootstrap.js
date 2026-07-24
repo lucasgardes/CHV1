@@ -1,196 +1,71 @@
 "use strict";
 
-const state = {
-  catalog: { videos: [], images: [] },
-  collection: { videos: {}, images: {} },
-  kind: "video",
-  query: "",
-  performer: "",
-  theme: "",
-  unlockState: "all",
-  activeMedia: null,
-  playerWasPlaying: false
-};
+const state={catalog:{videos:[],images:[],performers:{},themes:{}},collection:{videos:{},images:{}},kind:"video",query:"",performers:[],themes:[],unlockState:"all",type:"",difficulty:"",sort:"title",favoritesOnly:false,activeMedia:null,imageIndex:-1,imageScale:1,imageOffset:{x:0,y:0},drag:null};
+const byId=(id)=>document.getElementById(id);
+const unique=(values)=>[...new Set(values.filter(Boolean))].sort((a,b)=>a.localeCompare(b,"fr"));
+const formatTime=(seconds)=>{const value=Math.max(0,Number(seconds)||0);const minutes=Math.floor(value/60);const secs=Math.floor(value%60);return `${String(minutes).padStart(2,"0")}:${String(secs).padStart(2,"0")}`;};
+const selectedValues=(select)=>[...select.selectedOptions].map((option)=>option.value).filter(Boolean);
+const videoProgress=(media)=>state.collection.videos?.[media.id]??{};
+const imageProgress=(media)=>state.collection.images?.[media.id]??{};
+const revealed=(media)=>media.kind==="video"?Boolean(videoProgress(media).discovered||videoProgress(media).completed):Boolean(imageProgress(media).unlocked);
+const completed=(media)=>Boolean(videoProgress(media).completed);
+const favorite=(media)=>Boolean((media.kind==="video"?videoProgress(media):imageProgress(media)).favorite);
+const performerLabel=(id)=>state.catalog.performers?.[id]?.displayName||id;
+const themeLabel=(id)=>state.catalog.themes?.[id]?.label||id;
 
-const byId = (id) => document.getElementById(id);
-const unique = (values) => [...new Set(values.filter(Boolean))].sort((a, b) => a.localeCompare(b, "fr"));
-
-function isVideoDiscovered(media) {
-  return Boolean(state.collection.videos?.[media.id]?.discovered || state.collection.videos?.[media.id]?.completed);
-}
-function isVideoCompleted(media) { return Boolean(state.collection.videos?.[media.id]?.completed); }
-function isImageUnlocked(media) { return Boolean(state.collection.images?.[media.id]?.unlocked); }
-function isRevealed(media) { return media.kind === "video" ? isVideoDiscovered(media) : isImageUnlocked(media); }
-
-function matchesUnlockState(media) {
-  if (state.unlockState === "all") return true;
-  if (media.kind === "image") {
-    if (state.unlockState === "undiscovered") return !isImageUnlocked(media);
-    if (state.unlockState === "discovered" || state.unlockState === "completed") return isImageUnlocked(media);
-    if (state.unlockState === "unfinished") return false;
-  }
-  if (state.unlockState === "undiscovered") return !isVideoDiscovered(media);
-  if (state.unlockState === "discovered") return isVideoDiscovered(media);
-  if (state.unlockState === "completed") return isVideoCompleted(media);
-  if (state.unlockState === "unfinished") return isVideoDiscovered(media) && !isVideoCompleted(media);
-  return true;
+function mergeUnavailable(){
+ const videoIds=new Set(state.catalog.videos.map((media)=>media.id));
+ for(const [id,progress] of Object.entries(state.collection.videos||{})) if(!videoIds.has(id)) state.catalog.videos.push({kind:"video",id,title:progress.title||id,type:progress.type||"unknown",durationSeconds:progress.durationSeconds||0,difficulties:progress.difficulties||[],themes:progress.themes||[],performers:progress.performers||[],enabled:true,available:false,videoPath:null,funscripts:{},thumbnailPath:null});
+ const imageIds=new Set(state.catalog.images.map((media)=>media.id));
+ for(const [id,progress] of Object.entries(state.collection.images||{})) if(!imageIds.has(id)) state.catalog.images.push({kind:"image",id,title:progress.title||id,type:progress.type||"unknown",themes:progress.themes||[],performers:progress.performers||[],enabled:true,available:false,imagePath:null,thumbnailPath:null});
 }
 
-function getFilteredMedia() {
-  const source = state.kind === "video" ? state.catalog.videos : state.catalog.images;
-  return source.filter((media) => {
-    if (!media.enabled) return false;
-    const revealed = isRevealed(media);
-    if (state.performer && !media.performers.includes(state.performer)) return false;
-    if (state.theme && !media.themes.includes(state.theme)) return false;
-    if (!matchesUnlockState(media)) return false;
-    if (state.query) {
-      if (!revealed) return false;
-      const haystack = [media.title, ...media.performers, ...media.themes].join(" ").toLowerCase();
-      if (!haystack.includes(state.query.toLowerCase())) return false;
-    }
-    return true;
-  });
+function matchesState(media){if(state.unlockState==="all")return true;if(media.kind==="image")return state.unlockState==="undiscovered"?!revealed(media):state.unlockState==="discovered"||state.unlockState==="completed"?revealed(media):false;if(state.unlockState==="undiscovered")return !revealed(media);if(state.unlockState==="discovered")return revealed(media);if(state.unlockState==="completed")return completed(media);if(state.unlockState==="unfinished")return revealed(media)&&!completed(media);return true;}
+function anyMatch(values,selected){return !selected.length||selected.some((value)=>values.includes(value));}
+function filteredMedia(){
+ const source=state.kind==="video"?state.catalog.videos:state.catalog.images;
+ return source.filter((media)=>{if(!media.enabled)return false;const isRevealed=revealed(media);if(!anyMatch(media.performers||[],state.performers)||!anyMatch(media.themes||[],state.themes))return false;if(!matchesState(media))return false;if(state.type&&media.type!==state.type)return false;if(state.difficulty&&media.kind==="video"&&!(media.difficulties||[]).includes(state.difficulty))return false;if(state.favoritesOnly&&!favorite(media))return false;if(state.query){if(!isRevealed)return false;const haystack=[media.title,...(media.performers||[]).map(performerLabel),...(media.themes||[]).map(themeLabel)].join(" ").toLowerCase();if(!haystack.includes(state.query.toLowerCase()))return false;}return true;}).sort((a,b)=>{if(state.sort==="recent")return new Date((a.kind==="video"?videoProgress(a).discoveredAt:imageProgress(a).unlockedAt)||0)-new Date((b.kind==="video"?videoProgress(b).discoveredAt:imageProgress(b).unlockedAt)||0);if(state.sort==="duration")return (b.durationSeconds||0)-(a.durationSeconds||0);if(state.sort==="type")return String(a.type).localeCompare(String(b.type),"fr")||String(a.title).localeCompare(String(b.title),"fr");return String(a.title).localeCompare(String(b.title),"fr");});
 }
 
-function populateSelect(select, values, placeholder) {
-  const current = select.value;
-  select.replaceChildren(new Option(placeholder, ""), ...values.map((value) => new Option(value, value)));
-  select.value = values.includes(current) ? current : "";
-}
+function populateMulti(select,values,labelFor){const previous=new Set(selectedValues(select));select.replaceChildren(...values.map((value)=>new Option(labelFor(value),value,false,previous.has(value))));}
+function populateSingle(select,values,placeholder){const current=select.value;select.replaceChildren(new Option(placeholder,""),...values.map((value)=>new Option(value,value)));select.value=values.includes(current)?current:"";}
+function refreshFilters(){const source=(state.kind==="video"?state.catalog.videos:state.catalog.images).filter(revealed);populateMulti(byId("collection-performer-filter"),unique(source.flatMap((media)=>media.performers||[])),performerLabel);populateMulti(byId("collection-theme-filter"),unique(source.flatMap((media)=>media.themes||[])),themeLabel);populateSingle(byId("collection-type-filter"),unique(source.map((media)=>media.type)),"Tous les types");populateSingle(byId("collection-difficulty-filter"),state.kind==="video"?unique(source.flatMap((media)=>media.difficulties||[])):[],"Toutes les difficultés");byId("collection-difficulty-filter").hidden=state.kind!=="video";}
+function completionText(media){if(media.kind!=="video")return "";const done=new Set(videoProgress(media).completedDifficulties||[]);return (media.difficulties||[]).map((difficulty)=>`${difficulty}: ${done.has(difficulty)?"terminée":"non terminée"}`).join(" · ");}
+function mediaStatus(media){if(!revealed(media))return "Contenu non découvert";if(!media.available)return "Média actuellement indisponible";if(media.kind==="image")return imageProgress(media).unlockSource?`Débloquée — ${imageProgress(media).unlockSource}`:"Débloquée";const progress=videoProgress(media);if(completed(media))return `Terminée${completionText(media)?` — ${completionText(media)}`:""}`;return `Découverte — Non terminée${progress.bestProgressPercent?` — Meilleure progression : ${Math.round(progress.bestProgressPercent)} %`:""}`;}
+async function toggleFavorite(media,event){event.stopPropagation();const patch={favorite:!favorite(media)};state.collection=await globalThis.chv1Collection.update({kind:media.kind,id:media.id,patch});render();}
+function createCard(media){const isRevealed=revealed(media);const button=document.createElement("button");button.type="button";button.className=`collection-card${isRevealed?"":" is-locked"}${media.available?"":" is-unavailable"}`;button.disabled=!isRevealed||!media.available;const preview=document.createElement("span");preview.className="collection-card-preview";if(isRevealed&&media.thumbnailPath){const image=document.createElement("img");image.src=media.thumbnailPath;image.alt="";preview.append(image);}else preview.textContent=isRevealed?"Aperçu indisponible":"🔒";const copy=document.createElement("span");copy.className="collection-card-copy";const heading=document.createElement("span");heading.className="collection-card-heading";const title=document.createElement("strong");title.textContent=isRevealed?media.title:"???";const fav=document.createElement("button");fav.type="button";fav.className=`collection-favorite${favorite(media)?" is-active":""}`;fav.textContent=favorite(media)?"★":"☆";fav.hidden=!isRevealed;fav.addEventListener("click",(event)=>void toggleFavorite(media,event));heading.append(title,fav);const metadata=document.createElement("small");metadata.textContent=isRevealed?[...(media.performers||[]).map(performerLabel),...(media.themes||[]).map(themeLabel)].join(" · ")||"Aucune métadonnée":"Informations masquées";const details=document.createElement("small");details.textContent=isRevealed&&media.kind==="video"?`${formatTime(media.durationSeconds)} · ${(media.difficulties||[]).length} difficulté${(media.difficulties||[]).length>1?"s":""}`:isRevealed?media.type:"";const status=document.createElement("em");status.textContent=mediaStatus(media);copy.append(heading,metadata,details,status);button.append(preview,copy);button.addEventListener("click",()=>openMedia(media));return button;}
+function render(){refreshFilters();const media=filteredMedia();const source=state.kind==="video"?state.catalog.videos:state.catalog.images;byId("collection-count").textContent=`${source.filter(revealed).length} / ${source.length} ${state.kind==="video"?"vidéos découvertes":"images débloquées"}`;byId("collection-grid").replaceChildren(...media.map(createCard));byId("collection-empty").hidden=media.length>0;}
 
-function refreshFilters() {
-  const source = state.kind === "video" ? state.catalog.videos : state.catalog.images;
-  const visible = source.filter(isRevealed);
-  populateSelect(byId("collection-performer-filter"), unique(visible.flatMap((media) => media.performers)), "Tous les performers");
-  populateSelect(byId("collection-theme-filter"), unique(visible.flatMap((media) => media.themes)), "Tous les thèmes");
-}
+function dispatchPlayback(name,detail={}){window.dispatchEvent(new CustomEvent(name,{detail:{playbackContext:"collection",mediaId:state.activeMedia?.id,...detail}}));}
+function selectedFunscript(media){const difficulty=byId("collection-difficulty").value;return media?.funscripts?.[difficulty]??media?.funscripts?.default??Object.values(media?.funscripts||{})[0]??null;}
+function updateVideoTime(){const video=byId("collection-video");const seek=byId("collection-seek");if(Number.isFinite(video.duration)){seek.max=String(video.duration);seek.value=String(video.currentTime);byId("collection-time").textContent=`${formatTime(video.currentTime)} / -${formatTime(Math.max(0,video.duration-video.currentTime))}`;}}
+function resetImageTransform(){state.imageScale=1;state.imageOffset={x:0,y:0};applyImageTransform();}
+function applyImageTransform(){const image=byId("collection-image");image.style.transform=`translate(${state.imageOffset.x}px, ${state.imageOffset.y}px) scale(${state.imageScale})`;byId("collection-image-zoom").textContent=`${Math.round(state.imageScale*100)} %`;}
+function unlockedImages(){return state.catalog.images.filter((media)=>revealed(media)&&media.available);}
+function showImageAt(index){const images=unlockedImages();if(!images.length)return;state.imageIndex=(index+images.length)%images.length;state.activeMedia=images[state.imageIndex];byId("collection-viewer-title").textContent=state.activeMedia.title;byId("collection-image").src=state.activeMedia.imagePath;resetImageTransform();}
+function closeViewer(){const video=byId("collection-video");video.pause();dispatchPlayback("chv1:collection-video-close");video.removeAttribute("src");video.load();byId("collection-image").removeAttribute("src");byId("collection-viewer").hidden=true;state.activeMedia=null;document.body.classList.remove("collection-ui-hidden");}
+function openMedia(media){state.activeMedia=media;const viewer=byId("collection-viewer");viewer.hidden=false;byId("collection-viewer-title").textContent=media.title;const video=byId("collection-video");const image=byId("collection-image");const videoControls=byId("collection-video-controls");const imageControls=byId("collection-image-controls");if(media.kind==="video"){image.hidden=true;imageControls.hidden=true;video.hidden=false;videoControls.hidden=false;video.src=media.videoPath;const difficulties=media.difficulties?.length?media.difficulties:["default"];byId("collection-difficulty").replaceChildren(...difficulties.map((difficulty)=>new Option(difficulty,difficulty)));byId("collection-difficulty").disabled=difficulties.length<=1;dispatchPlayback("chv1:collection-video-opened",{videoPath:media.videoPath,funscriptPath:selectedFunscript(media)});}else{video.hidden=true;videoControls.hidden=true;image.hidden=false;imageControls.hidden=false;state.imageIndex=unlockedImages().findIndex((entry)=>entry.id===media.id);showImageAt(state.imageIndex);}}
 
-function mediaStatus(media) {
-  if (!isRevealed(media)) return "Contenu non découvert";
-  if (!media.available) return "Média actuellement indisponible";
-  if (media.kind === "image") return "Débloquée";
-  return isVideoCompleted(media) ? "Terminée" : "Découverte — Non terminée";
+function bindUi(){
+ document.querySelectorAll("[data-collection-kind]").forEach((button)=>button.addEventListener("click",()=>{state.kind=button.dataset.collectionKind;document.querySelectorAll("[data-collection-kind]").forEach((entry)=>entry.classList.toggle("is-active",entry===button));render();}));
+ byId("collection-search").addEventListener("input",(event)=>{state.query=event.target.value.trim();render();});
+ byId("collection-performer-filter").addEventListener("change",(event)=>{state.performers=selectedValues(event.target);render();});
+ byId("collection-theme-filter").addEventListener("change",(event)=>{state.themes=selectedValues(event.target);render();});
+ byId("collection-state-filter").addEventListener("change",(event)=>{state.unlockState=event.target.value;render();});
+ byId("collection-type-filter").addEventListener("change",(event)=>{state.type=event.target.value;render();});
+ byId("collection-difficulty-filter").addEventListener("change",(event)=>{state.difficulty=event.target.value;render();});
+ byId("collection-sort").addEventListener("change",(event)=>{state.sort=event.target.value;render();});
+ byId("collection-favorites-only").addEventListener("change",(event)=>{state.favoritesOnly=event.target.checked;render();});
+ byId("collection-close-viewer").addEventListener("click",closeViewer);
+ const video=byId("collection-video");byId("collection-play-pause").addEventListener("click",()=>video.paused?video.play():video.pause());
+ const step=()=>Number(byId("collection-seek-step").value)||10;byId("collection-backward").addEventListener("click",()=>{video.currentTime=Math.max(0,video.currentTime-step());});byId("collection-forward").addEventListener("click",()=>{video.currentTime=Math.min(video.duration||Infinity,video.currentTime+step());});
+ byId("collection-seek").addEventListener("input",(event)=>{video.currentTime=Number(event.target.value)||0;});byId("collection-volume").addEventListener("input",(event)=>{video.volume=Number(event.target.value);});byId("collection-speed").addEventListener("change",(event)=>{video.playbackRate=Number(event.target.value);});
+ byId("collection-fullscreen").addEventListener("click",()=>byId("collection-viewer").requestFullscreen?.());byId("collection-difficulty").addEventListener("change",()=>dispatchPlayback("chv1:collection-funscript-changed",{funscriptPath:selectedFunscript(state.activeMedia)}));byId("collection-handy-toggle").addEventListener("change",(event)=>dispatchPlayback("chv1:collection-handy-toggle",{enabled:event.target.checked,funscriptPath:selectedFunscript(state.activeMedia),intensity:Number(byId("collection-intensity").value)}));byId("collection-intensity").addEventListener("input",(event)=>dispatchPlayback("chv1:collection-intensity",{intensity:Number(event.target.value)}));
+ video.addEventListener("timeupdate",updateVideoTime);video.addEventListener("loadedmetadata",updateVideoTime);video.addEventListener("seeking",()=>dispatchPlayback("chv1:collection-video-seek",{currentTime:video.currentTime,wasPlaying:!video.paused}));video.addEventListener("pause",()=>dispatchPlayback("chv1:collection-video-pause"));video.addEventListener("play",()=>dispatchPlayback("chv1:collection-video-play",{currentTime:video.currentTime,funscriptPath:selectedFunscript(state.activeMedia)}));
+ byId("collection-image-prev").addEventListener("click",()=>showImageAt(state.imageIndex-1));byId("collection-image-next").addEventListener("click",()=>showImageAt(state.imageIndex+1));byId("collection-image-zoom-in").addEventListener("click",()=>{state.imageScale=Math.min(5,state.imageScale+.25);applyImageTransform();});byId("collection-image-zoom-out").addEventListener("click",()=>{state.imageScale=Math.max(.25,state.imageScale-.25);applyImageTransform();});byId("collection-image-reset").addEventListener("click",resetImageTransform);byId("collection-image-ui").addEventListener("click",()=>document.body.classList.toggle("collection-ui-hidden"));
+ const image=byId("collection-image");image.addEventListener("pointerdown",(event)=>{if(state.imageScale<=1)return;state.drag={x:event.clientX-state.imageOffset.x,y:event.clientY-state.imageOffset.y};image.setPointerCapture(event.pointerId);});image.addEventListener("pointermove",(event)=>{if(!state.drag)return;state.imageOffset={x:event.clientX-state.drag.x,y:event.clientY-state.drag.y};applyImageTransform();});image.addEventListener("pointerup",()=>{state.drag=null;});
+ document.addEventListener("keydown",(event)=>{if(byId("collection-viewer").hidden)return;if(event.key==="Escape")closeViewer();if(state.activeMedia?.kind==="image"){if(event.key==="ArrowLeft")showImageAt(state.imageIndex-1);if(event.key==="ArrowRight")showImageAt(state.imageIndex+1);if(event.key==="+")byId("collection-image-zoom-in").click();if(event.key==="-")byId("collection-image-zoom-out").click();}else if(event.code==="Space"){event.preventDefault();byId("collection-play-pause").click();}});
 }
-
-function createMediaCard(media) {
-  const revealed = isRevealed(media);
-  const button = document.createElement("button");
-  button.type = "button";
-  button.className = `collection-card${revealed ? "" : " is-locked"}${media.available ? "" : " is-unavailable"}`;
-  button.disabled = !revealed || !media.available;
-  const preview = document.createElement("span");
-  preview.className = "collection-card-preview";
-  if (revealed && media.thumbnailPath) {
-    const image = document.createElement("img"); image.src = media.thumbnailPath; image.alt = ""; preview.append(image);
-  } else preview.textContent = revealed ? "Aperçu indisponible" : "🔒";
-  const copy = document.createElement("span"); copy.className = "collection-card-copy";
-  const title = document.createElement("strong"); title.textContent = revealed ? media.title : "???";
-  const metadata = document.createElement("small");
-  metadata.textContent = revealed ? [...media.performers, ...media.themes].join(" · ") || "Aucune métadonnée" : "Informations masquées";
-  const status = document.createElement("em"); status.textContent = mediaStatus(media);
-  copy.append(title, metadata, status);
-  button.append(preview, copy);
-  button.addEventListener("click", () => openMedia(media));
-  return button;
-}
-
-function render() {
-  refreshFilters();
-  const media = getFilteredMedia();
-  const total = state.kind === "video" ? state.catalog.videos.length : state.catalog.images.length;
-  const discovered = (state.kind === "video" ? state.catalog.videos : state.catalog.images).filter(isRevealed).length;
-  byId("collection-count").textContent = `${discovered} / ${total} ${state.kind === "video" ? "vidéos découvertes" : "images débloquées"}`;
-  const grid = byId("collection-grid");
-  grid.replaceChildren(...media.map(createMediaCard));
-  byId("collection-empty").hidden = media.length > 0;
-}
-
-function closeViewer() {
-  const viewer = byId("collection-viewer");
-  const video = byId("collection-video");
-  video.pause(); video.removeAttribute("src"); video.load();
-  byId("collection-image").removeAttribute("src");
-  viewer.hidden = true; state.activeMedia = null;
-}
-
-function selectedFunscript(media) {
-  const difficulty = byId("collection-difficulty").value;
-  return media.funscripts?.[difficulty] ?? media.funscripts?.default ?? Object.values(media.funscripts ?? {})[0] ?? null;
-}
-
-function dispatchCollectionPlaybackEvent(name, detail = {}) {
-  window.dispatchEvent(new CustomEvent(name, { detail: { playbackContext: "collection", mediaId: state.activeMedia?.id, ...detail } }));
-}
-
-function openMedia(media) {
-  state.activeMedia = media;
-  const viewer = byId("collection-viewer"); viewer.hidden = false;
-  byId("collection-viewer-title").textContent = media.title;
-  const video = byId("collection-video");
-  const image = byId("collection-image");
-  const controls = byId("collection-video-controls");
-  if (media.kind === "video") {
-    image.hidden = true; video.hidden = false; controls.hidden = false;
-    video.src = media.videoPath;
-    const select = byId("collection-difficulty");
-    select.replaceChildren(...media.difficulties.map((difficulty) => new Option(difficulty, difficulty)));
-    select.disabled = media.difficulties.length <= 1;
-    dispatchCollectionPlaybackEvent("chv1:collection-video-opened", { videoPath: media.videoPath, funscriptPath: selectedFunscript(media) });
-  } else {
-    video.hidden = true; controls.hidden = true; image.hidden = false; image.src = media.imagePath;
-  }
-}
-
-function bindUi() {
-  document.querySelectorAll("[data-collection-kind]").forEach((button) => button.addEventListener("click", () => {
-    state.kind = button.dataset.collectionKind;
-    document.querySelectorAll("[data-collection-kind]").forEach((entry) => entry.classList.toggle("is-active", entry === button));
-    render();
-  }));
-  byId("collection-search").addEventListener("input", (event) => { state.query = event.target.value.trim(); render(); });
-  byId("collection-performer-filter").addEventListener("change", (event) => { state.performer = event.target.value; render(); });
-  byId("collection-theme-filter").addEventListener("change", (event) => { state.theme = event.target.value; render(); });
-  byId("collection-state-filter").addEventListener("change", (event) => { state.unlockState = event.target.value; render(); });
-  byId("collection-close-viewer").addEventListener("click", closeViewer);
-  byId("collection-play-pause").addEventListener("click", () => {
-    const video = byId("collection-video"); video.paused ? video.play() : video.pause();
-  });
-  byId("collection-backward").addEventListener("click", () => { const video = byId("collection-video"); video.currentTime = Math.max(0, video.currentTime - 10); });
-  byId("collection-forward").addEventListener("click", () => { const video = byId("collection-video"); video.currentTime = Math.min(video.duration || Infinity, video.currentTime + 10); });
-  byId("collection-volume").addEventListener("input", (event) => { byId("collection-video").volume = Number(event.target.value); });
-  byId("collection-speed").addEventListener("change", (event) => { byId("collection-video").playbackRate = Number(event.target.value); });
-  byId("collection-difficulty").addEventListener("change", () => dispatchCollectionPlaybackEvent("chv1:collection-funscript-changed", { funscriptPath: selectedFunscript(state.activeMedia) }));
-  byId("collection-handy-toggle").addEventListener("change", (event) => dispatchCollectionPlaybackEvent("chv1:collection-handy-toggle", { enabled: event.target.checked, funscriptPath: selectedFunscript(state.activeMedia) }));
-  byId("collection-video").addEventListener("seeking", () => dispatchCollectionPlaybackEvent("chv1:collection-video-seek", { currentTime: byId("collection-video").currentTime }));
-  byId("collection-video").addEventListener("pause", () => dispatchCollectionPlaybackEvent("chv1:collection-video-pause"));
-  byId("collection-video").addEventListener("play", () => dispatchCollectionPlaybackEvent("chv1:collection-video-play", { funscriptPath: selectedFunscript(state.activeMedia) }));
-}
-
-function bindNavigation() {
-  const collectionTab = byId("collection-navigation-tab");
-  const mapTab = byId("map-navigation-tab");
-  collectionTab.addEventListener("click", () => {
-    document.querySelectorAll(".game-screen").forEach((screen) => { screen.hidden = screen.id !== "collection-screen"; });
-    collectionTab.classList.add("is-active"); mapTab.classList.remove("is-active");
-    byId("declare-defeat-button").hidden = true;
-    render();
-  });
-  mapTab.addEventListener("click", () => {
-    closeViewer();
-    document.querySelectorAll(".game-screen").forEach((screen) => { screen.hidden = screen.id !== "map-screen"; });
-    mapTab.classList.add("is-active"); collectionTab.classList.remove("is-active");
-    byId("declare-defeat-button").hidden = false;
-  });
-}
-
-async function initialize() {
-  if (!globalThis.chv1Media || !globalThis.chv1Collection) return;
-  bindUi(); bindNavigation();
-  const [catalog, collection] = await Promise.all([globalThis.chv1Media.scanLibrary(), globalThis.chv1Collection.get()]);
-  state.catalog = { videos: catalog.videos ?? catalog.entries ?? [], images: catalog.images ?? [] };
-  state.collection = collection ?? { videos: {}, images: {} };
-  render();
-}
-
-window.addEventListener("DOMContentLoaded", initialize);
+function bindNavigation(){const collectionTab=byId("collection-navigation-tab");const mapTab=byId("map-navigation-tab");collectionTab.addEventListener("click",()=>{document.querySelectorAll(".game-screen").forEach((screen)=>{screen.hidden=screen.id!=="collection-screen";});document.querySelectorAll(".navigation-tab").forEach((entry)=>entry.classList.toggle("is-active",entry===collectionTab));byId("declare-defeat-button").hidden=true;render();});mapTab.addEventListener("click",()=>{closeViewer();document.querySelectorAll(".game-screen").forEach((screen)=>{screen.hidden=screen.id!=="map-screen";});document.querySelectorAll(".navigation-tab").forEach((entry)=>entry.classList.toggle("is-active",entry===mapTab));byId("declare-defeat-button").hidden=false;});}
+async function initialize(){if(!globalThis.chv1Media||!globalThis.chv1Collection)return;bindUi();bindNavigation();const[catalog,collection]=await Promise.all([globalThis.chv1Media.scanLibrary(),globalThis.chv1Collection.get()]);state.catalog={videos:catalog.videos||catalog.entries||[],images:catalog.images||[],performers:catalog.performers||{},themes:catalog.themes||{}};state.collection=collection||{videos:{},images:{}};mergeUnavailable();render();window.addEventListener("chv1:collection-updated",async()=>{state.collection=await globalThis.chv1Collection.get();mergeUnavailable();render();});}
+window.addEventListener("DOMContentLoaded",initialize);
