@@ -1,108 +1,14 @@
 "use strict";
-
-function createEmptyStats() {
-  return {
-    schemaVersion: 1,
-    global: {
-      totalStarted: 0,
-      totalCompleted: 0,
-      totalWins: 0,
-      totalLosses: 0,
-      totalItemsUsed: 0,
-      totalWatchSeconds: 0
-    },
-    videos: {}
-  };
-}
-
-function ensureVideo(stats, videoId) {
-  if (!stats.videos[videoId]) {
-    stats.videos[videoId] = {
-      started: 0,
-      completed: 0,
-      wins: 0,
-      losses: 0,
-      itemsUsed: 0,
-      watchSeconds: 0,
-      bestProgressPercent: 0,
-      progressPercentTotal: 0,
-      progressSamples: 0,
-      lastPlayedAt: null,
-      items: {},
-      byDifficulty: {}
-    };
-  }
-  return stats.videos[videoId];
-}
-
-function ensureDifficulty(video, difficulty) {
-  const key = String(difficulty || "default");
-  if (!video.byDifficulty[key]) video.byDifficulty[key] = { started: 0, completed: 0, wins: 0, losses: 0, itemsUsed: 0, watchSeconds: 0 };
-  return video.byDifficulty[key];
-}
-
-function applyPlaybackEvent(stats, event = {}) {
-  if (!stats || typeof stats !== "object") stats = createEmptyStats();
-  if (event.playbackContext !== "run" && event.playbackContext !== "event") return stats;
-  const videoId = String(event.videoId || "").trim();
-  if (!videoId) return stats;
-  const video = ensureVideo(stats, videoId);
-  const difficulty = ensureDifficulty(video, event.difficulty);
-  const now = event.at || new Date().toISOString();
-  const watchSeconds = Math.max(0, Number(event.watchSeconds) || 0);
-  const progress = Math.max(0, Math.min(100, Number(event.progressPercent) || 0));
-
-  if (event.type === "start") {
-    stats.global.totalStarted += 1;
-    video.started += 1;
-    difficulty.started += 1;
-    video.lastPlayedAt = now;
-  } else if (event.type === "item-used") {
-    const itemId = String(event.itemId || "unknown");
-    stats.global.totalItemsUsed += 1;
-    video.itemsUsed += 1;
-    difficulty.itemsUsed += 1;
-    video.items[itemId] = (video.items[itemId] || 0) + 1;
-  } else if (event.type === "win" || event.type === "loss") {
-    stats.global.totalCompleted += 1;
-    stats.global.totalWatchSeconds += watchSeconds;
-    video.completed += 1;
-    video.watchSeconds += watchSeconds;
-    difficulty.completed += 1;
-    difficulty.watchSeconds += watchSeconds;
-    video.bestProgressPercent = Math.max(video.bestProgressPercent, progress);
-    video.progressPercentTotal += progress;
-    video.progressSamples += 1;
-    if (event.type === "win") {
-      stats.global.totalWins += 1;
-      video.wins += 1;
-      difficulty.wins += 1;
-    } else {
-      stats.global.totalLosses += 1;
-      video.losses += 1;
-      difficulty.losses += 1;
-    }
-  }
-  return stats;
-}
-
-function summarizeStats(stats) {
-  const videos = Object.entries(stats?.videos || {}).map(([id, entry]) => ({
-    id,
-    ...entry,
-    winrate: entry.completed ? entry.wins / entry.completed : 0,
-    averageItemsUsed: entry.started ? entry.itemsUsed / entry.started : 0,
-    averageProgressPercent: entry.progressSamples ? entry.progressPercentTotal / entry.progressSamples : 0
-  }));
-  const sortDesc = (key) => [...videos].sort((a, b) => b[key] - a[key]);
-  return {
-    global: stats?.global || createEmptyStats().global,
-    mostViewed: sortDesc("started").slice(0, 10),
-    mostItemsUsed: sortDesc("itemsUsed").slice(0, 10),
-    bestWinrate: [...videos].filter((v) => v.completed > 0).sort((a, b) => b.winrate - a.winrate || b.completed - a.completed).slice(0, 10),
-    worstWinrate: [...videos].filter((v) => v.completed > 0).sort((a, b) => a.winrate - b.winrate || b.completed - a.completed).slice(0, 10),
-    videos
-  };
-}
-
-module.exports = { createEmptyStats, applyPlaybackEvent, summarizeStats };
+function createEmptyStats(){return{schemaVersion:2,global:{totalStarted:0,totalCompleted:0,totalWins:0,totalLosses:0,totalItemsUsed:0,totalWatchSeconds:0,themes:{},difficulties:{}},videos:{}};}
+function ensureVideo(stats,id,event={}){if(!stats.videos[id])stats.videos[id]={title:event.title||id,type:event.videoType||"unknown",themes:Array.isArray(event.themes)?event.themes:[],performers:Array.isArray(event.performers)?event.performers:[],durationSeconds:Number(event.durationSeconds)||0,started:0,completed:0,wins:0,losses:0,itemsUsed:0,watchSeconds:0,bestProgressPercent:0,progressPercentTotal:0,progressSamples:0,lossProgressTotal:0,lossProgressSamples:0,lossAtSecondsTotal:0,lossAtSecondsSamples:0,earliestLossAtSeconds:null,latestLossAtSeconds:null,firstItemUseSecondsTotal:0,firstItemUseSamples:0,attemptsWithItems:0,winsWithItems:0,lossesWithItems:0,attemptsWithoutItems:0,winsWithoutItems:0,lossesWithoutItems:0,lastPlayedAt:null,items:{},itemWins:{},byDifficulty:{}};const video=stats.videos[id];if(event.title)video.title=event.title;if(event.videoType)video.type=event.videoType;if(Array.isArray(event.themes))video.themes=event.themes;if(Array.isArray(event.performers))video.performers=event.performers;if(Number(event.durationSeconds)>0)video.durationSeconds=Number(event.durationSeconds);return video;}
+function ensureDifficulty(video,key){key=String(key||"default");if(!video.byDifficulty[key])video.byDifficulty[key]={started:0,completed:0,wins:0,losses:0,itemsUsed:0,watchSeconds:0,lossAtSecondsTotal:0,lossAtSecondsSamples:0};return video.byDifficulty[key];}
+function bump(map,key,amount=1){map[key]=(map[key]||0)+amount;}
+function applyPlaybackEvent(stats,event={}){if(!stats||typeof stats!=="object")stats=createEmptyStats();if(event.playbackContext!=="run"&&event.playbackContext!=="event")return stats;stats.schemaVersion=2;stats.global={...createEmptyStats().global,...stats.global,themes:stats.global?.themes||{},difficulties:stats.global?.difficulties||{}};const id=String(event.videoId||"").trim();if(!id)return stats;const video=ensureVideo(stats,id,event);const difficultyName=String(event.difficulty||"default");const difficulty=ensureDifficulty(video,difficultyName);const now=event.at||new Date().toISOString();const watch=Math.max(0,Number(event.watchSeconds)||0);const progress=Math.max(0,Math.min(100,Number(event.progressPercent)||0));
+ if(event.type==="start"){stats.global.totalStarted++;video.started++;difficulty.started++;video.lastPlayedAt=now;bump(stats.global.difficulties,difficultyName);for(const theme of video.themes)bump(stats.global.themes,theme);}
+ else if(event.type==="item-used"){const item=String(event.itemId||"unknown");stats.global.totalItemsUsed++;video.itemsUsed++;difficulty.itemsUsed++;bump(video.items,item);}
+ else if(event.type==="win"||event.type==="loss"){const win=event.type==="win";const itemIds=Array.isArray(event.itemIds)?[...new Set(event.itemIds)]:[];const itemCount=Math.max(itemIds.length,Number(event.itemCount)||0);stats.global.totalCompleted++;stats.global.totalWatchSeconds+=watch;video.completed++;video.watchSeconds+=watch;difficulty.completed++;difficulty.watchSeconds+=watch;video.bestProgressPercent=Math.max(video.bestProgressPercent,progress);video.progressPercentTotal+=progress;video.progressSamples++;if(itemCount>0){video.attemptsWithItems++;if(win)video.winsWithItems++;else video.lossesWithItems++;}else{video.attemptsWithoutItems++;if(win)video.winsWithoutItems++;else video.lossesWithoutItems++;}const firstItem=Number(event.firstItemUseSeconds);if(Number.isFinite(firstItem)&&firstItem>=0){video.firstItemUseSecondsTotal+=firstItem;video.firstItemUseSamples++;}if(win){stats.global.totalWins++;video.wins++;difficulty.wins++;for(const item of itemIds)bump(video.itemWins,item);}else{stats.global.totalLosses++;video.losses++;difficulty.losses++;video.lossProgressTotal+=progress;video.lossProgressSamples++;video.lossAtSecondsTotal+=watch;video.lossAtSecondsSamples++;difficulty.lossAtSecondsTotal+=watch;difficulty.lossAtSecondsSamples++;video.earliestLossAtSeconds=video.earliestLossAtSeconds==null?watch:Math.min(video.earliestLossAtSeconds,watch);video.latestLossAtSeconds=video.latestLossAtSeconds==null?watch:Math.max(video.latestLossAtSeconds,watch);}}
+ return stats;}
+function enrich(id,entry){const completed=entry.completed||0;return{id,...entry,winrate:completed?entry.wins/completed:0,averageItemsUsed:entry.started?entry.itemsUsed/entry.started:0,averageProgressPercent:entry.progressSamples?entry.progressPercentTotal/entry.progressSamples:0,averageLossProgressPercent:entry.lossProgressSamples?entry.lossProgressTotal/entry.lossProgressSamples:0,averageLossAtSeconds:entry.lossAtSecondsSamples?entry.lossAtSecondsTotal/entry.lossAtSecondsSamples:0,averageFirstItemUseSeconds:entry.firstItemUseSamples?entry.firstItemUseSecondsTotal/entry.firstItemUseSamples:0,winrateWithItems:entry.attemptsWithItems?entry.winsWithItems/entry.attemptsWithItems:0,winrateWithoutItems:entry.attemptsWithoutItems?entry.winsWithoutItems/entry.attemptsWithoutItems:0};}
+function topMap(map){return Object.entries(map||{}).sort((a,b)=>b[1]-a[1]);}
+function summarizeStats(stats){const videos=Object.entries(stats?.videos||{}).map(([id,e])=>enrich(id,e));const desc=(key)=>[...videos].sort((a,b)=>b[key]-a[key]);const difficultyResults={};for(const video of videos)for(const[name,value]of Object.entries(video.byDifficulty||{})){if(!difficultyResults[name])difficultyResults[name]={wins:0,losses:0,started:0};difficultyResults[name].wins+=value.wins||0;difficultyResults[name].losses+=value.losses||0;difficultyResults[name].started+=value.started||0;}return{global:stats?.global||createEmptyStats().global,mostViewed:desc("started").slice(0,10),mostItemsUsed:desc("itemsUsed").slice(0,10),bestWinrate:[...videos].filter(v=>v.completed>0).sort((a,b)=>b.winrate-a.winrate||b.completed-a.completed).slice(0,10),worstWinrate:[...videos].filter(v=>v.completed>0).sort((a,b)=>a.winrate-b.winrate||b.completed-a.completed).slice(0,10),mostPlayedThemes:topMap(stats?.global?.themes).slice(0,10),difficultyResults:Object.entries(difficultyResults).map(([difficulty,value])=>({difficulty,...value,winrate:(value.wins+value.losses)?value.wins/(value.wins+value.losses):0})).sort((a,b)=>b.winrate-a.winrate||b.wins-a.wins),videos};}
+module.exports={createEmptyStats,applyPlaybackEvent,summarizeStats};
