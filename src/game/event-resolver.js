@@ -3,7 +3,7 @@
 import { getAvailableItems,getItemById,getRandomAvailableItem } from "../data/items.js";
 function randomBetween(minimum,maximum,random){const min=Math.ceil(Number(minimum)||0);const max=Math.floor(Number(maximum)||min);return Math.floor(min+random()*(max-min+1));}
 export class EventResolver{
- constructor({gameState,itemController=null,startEncounter=async()=>{},random=Math.random}){Object.assign(this,{gameState,itemController,startEncounter,random});}
+ constructor({gameState,itemController=null,mapController=null,startEncounter=async()=>{},random=Math.random}){Object.assign(this,{gameState,itemController,mapController,startEncounter,random});}
  rewardCuriosity(){if(this.gameState.activeBlessingId!=="rewarded-curiosity"||this.gameState.getRunFlag?.("rewarded-curiosity-used"))return 0;this.gameState.setRunFlag?.("rewarded-curiosity-used",true);return this.gameState.addGold(30);}
  async resolve(effect={}){const amount=effect.amountRange?randomBetween(effect.amountRange[0],effect.amountRange[1],this.random):effect.amount;switch(effect.type){
   case"none":return{type:effect.type};
@@ -11,6 +11,8 @@ export class EventResolver{
   case"lose-gold":return{type:effect.type,amount:this.gameState.loseGold(amount)};
   case"gain-item":{const result=this.gainItem(effect.itemId);if(result.itemId)result.blessingGold=this.rewardCuriosity();return result;}
   case"random-item":{const result=this.gainItem(this.pickAvailableItem(effect.itemType)?.id??null);if(result.itemId)result.blessingGold=this.rewardCuriosity();return result;}
+  case"three-lockers-security":return this.resolveThreeLockersSecurity(effect);
+  case"reveal-next-encounters":return this.revealNextEncounters(effect.count??2);
   case"choose-random-items":return{type:effect.type,candidates:this.pickAvailableItems(effect.count??2,effect.itemType)};
   case"exchange-item":return this.exchangeItem(effect.giveItemId,effect.receiveItemId);
   case"lose-random-item":return this.loseRandomItem(effect.itemType);
@@ -44,14 +46,9 @@ export class EventResolver{
  pickAvailableItems(count,itemType=null){const pool=getAvailableItems(this.gameState.inventory).filter((item)=>!itemType||item.type===itemType);const selected=[];while(pool.length&&selected.length<count)selected.push(pool.splice(Math.floor(this.random()*pool.length),1)[0]);return selected.map((item)=>item.id);}
  gainItem(itemId){const item=getItemById(itemId);if(!item||!this.gameState.addItem(itemId))return{type:"gain-item",itemId:null};this.itemController?.ensureRuntimeState(itemId);return{type:"gain-item",itemId};}
  loseItem(itemId){if(!itemId||!this.gameState.removeItem(itemId))return{type:"lose-item",itemId:null};this.itemController?.runtimeStates?.delete(itemId);return{type:"lose-item",itemId};}
- exchangeItem(giveItemId,receiveItemId){
-  if(!giveItemId||!receiveItemId||giveItemId===receiveItemId)return{type:"exchange-item",givenItemId:null,receivedItemId:null};
-  if(!this.gameState.hasItem(giveItemId)||this.gameState.hasItem(receiveItemId)||!getItemById(receiveItemId))return{type:"exchange-item",givenItemId:null,receivedItemId:null};
-  if(!this.gameState.removeItem(giveItemId))return{type:"exchange-item",givenItemId:null,receivedItemId:null};
-  if(!this.gameState.addItem(receiveItemId)){this.gameState.addItem(giveItemId);this.itemController?.ensureRuntimeState(giveItemId);return{type:"exchange-item",givenItemId:null,receivedItemId:null};}
-  this.itemController?.runtimeStates?.delete(giveItemId);this.itemController?.ensureRuntimeState(receiveItemId);
-  return{type:"exchange-item",givenItemId:giveItemId,receivedItemId:receiveItemId,blessingGold:this.rewardCuriosity()};
- }
+ resolveThreeLockersSecurity(effect={}){const ownsRechargeable=this.gameState.inventory.some((itemId)=>getItemById(itemId)?.type==="rechargeable");if(!ownsRechargeable){const fallback=this.gainItem(this.pickAvailableItem("consumable")?.id??null);return{type:"three-lockers-security",mode:"fallback-consumable",itemId:fallback.itemId,blessingGold:fallback.itemId?this.rewardCuriosity():0};}const reduction=this.reduceRechargeAll(effect.rounds??1);return{type:"three-lockers-security",mode:"recharge-reduction",itemIds:reduction.itemIds,rounds:reduction.rounds,blessingGold:this.rewardCuriosity()};}
+ revealNextEncounters(count=2){const nodes=this.mapController?.getMap?.()?.nodes??[];const byId=new Map(nodes.map((node)=>[node.id,node]));const start=byId.get(this.gameState.currentNodeId);if(!start)return{type:"reveal-next-encounters",encounters:[]};const queue=(start.nextNodeIds??[]).map((id)=>({id,distance:1}));const visited=new Set([start.id]);const candidates=[];while(queue.length){const current=queue.shift();if(visited.has(current.id))continue;visited.add(current.id);const node=byId.get(current.id);if(!node)continue;if(["normal","elite","boss"].includes(node.type))candidates.push({...node,distance:current.distance});for(const nextId of node.nextNodeIds??[])queue.push({id:nextId,distance:current.distance+1});}candidates.sort((a,b)=>a.distance-b.distance||(a.row??0)-(b.row??0)||(a.lane??0)-(b.lane??0));const selected=candidates.slice(0,Math.max(0,Number(count)||0));const encounters=this.gameState.revealMapEncounters(selected);return{type:"reveal-next-encounters",encounters,observation:"Les écrans hésitent une seconde avant d’afficher des données qui ne t’étaient pas destinées."};}
+ exchangeItem(giveItemId,receiveItemId){if(!giveItemId||!receiveItemId||giveItemId===receiveItemId)return{type:"exchange-item",givenItemId:null,receivedItemId:null};if(!this.gameState.hasItem(giveItemId)||this.gameState.hasItem(receiveItemId)||!getItemById(receiveItemId))return{type:"exchange-item",givenItemId:null,receivedItemId:null};if(!this.gameState.removeItem(giveItemId))return{type:"exchange-item",givenItemId:null,receivedItemId:null};if(!this.gameState.addItem(receiveItemId)){this.gameState.addItem(giveItemId);this.itemController?.ensureRuntimeState(giveItemId);return{type:"exchange-item",givenItemId:null,receivedItemId:null};}this.itemController?.runtimeStates?.delete(giveItemId);this.itemController?.ensureRuntimeState(receiveItemId);return{type:"exchange-item",givenItemId:giveItemId,receivedItemId:receiveItemId,blessingGold:this.rewardCuriosity()};}
  loseRandomItem(itemType=null){const candidates=this.gameState.inventory.filter((itemId)=>!itemType||getItemById(itemId)?.type===itemType);if(!candidates.length)return{type:"lose-item",itemId:null};return this.loseItem(candidates[Math.floor(this.random()*candidates.length)]);}
  disableItem(itemId,encounters){const disabled=this.gameState.disableItem(itemId,encounters);return{type:"disable-item",itemId:disabled?itemId:null,encounters};}
  disableRandomItem(itemType,encounters){const candidates=this.gameState.inventory.filter((itemId)=>!itemType||getItemById(itemId)?.type===itemType);if(!candidates.length)return{type:"disable-item",itemId:null,encounters};return this.disableItem(candidates[Math.floor(this.random()*candidates.length)],encounters);}
