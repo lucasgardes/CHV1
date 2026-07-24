@@ -10,6 +10,8 @@ const {
 const { createEmptyStats, applyPlaybackEvent, summarizeStats } = require("./media/video-stats-store.js");
 
 let selectedLibraryPath = null;
+const MAX_RECENT_SESSIONS = 100;
+const MAX_ANTI_REPEAT_IDS = 4;
 
 async function fileExists(filePath) { try { await fs.access(filePath); return true; } catch { return false; } }
 async function readJson(filePath, fallback = null) { try { return JSON.parse(await fs.readFile(filePath, "utf8")); } catch { return fallback; } }
@@ -17,24 +19,28 @@ async function writeJson(filePath, value) { await fs.mkdir(path.dirname(filePath
 function isInside(rootPath, candidatePath) { const relative = path.relative(rootPath, candidatePath); return relative === "" || (!relative.startsWith("..") && !path.isAbsolute(relative)); }
 function defaultLibraryPath() { return path.join(app.getPath("userData"), "media"); }
 function libraryPath() { return selectedLibraryPath || defaultLibraryPath(); }
-function settingsPath() { return path.join(app.getPath("userData"), "media-settings.json"); }
-function cachePath() { return path.join(app.getPath("userData"), "library-cache.json"); }
-function collectionPath() { return path.join(app.getPath("userData"), "collection.json"); }
-function statsPath() { return path.join(app.getPath("userData"), "video-stats.json"); }
+function userDataPath(filename) { return path.join(app.getPath("userData"), filename); }
+function settingsPath() { return userDataPath("media-settings.json"); }
+function cachePath() { return userDataPath("library-cache.json"); }
+function collectionPath() { return userDataPath("collection.json"); }
+function statsPath() { return userDataPath("video-stats.json"); }
+function sessionsPath() { return userDataPath("recent-sessions.json"); }
+function performerRegistryPath() { return path.join(libraryPath(), "performers.json"); }
+function themeRegistryPath() { return path.join(libraryPath(), "themes.json"); }
 
 async function loadSettings() {
   const settings = await readJson(settingsPath(), {});
   if (typeof settings.libraryPath === "string" && settings.libraryPath) selectedLibraryPath = settings.libraryPath;
 }
-async function saveSettings() { await writeJson(settingsPath(), { schemaVersion:1, libraryPath:libraryPath() }); }
+async function readSettings() { return await readJson(settingsPath(), { schemaVersion:1, libraryPath:libraryPath(), retainDetailedHistory:true }); }
+async function saveSettings(patch = {}) { const current = await readSettings(); const next = { ...current, ...patch, schemaVersion:1, libraryPath:libraryPath() }; await writeJson(settingsPath(), next); return next; }
 
 async function walkForMetadata(rootPath) {
   const results = [];
   if (!(await fileExists(rootPath))) return results;
   const stack = [rootPath];
   while (stack.length) {
-    const current = stack.pop();
-    let entries = [];
+    const current = stack.pop(); let entries = [];
     try { entries = await fs.readdir(current, { withFileTypes:true }); } catch { continue; }
     for (const entry of entries) {
       const absolute = path.join(current, entry.name);
@@ -45,14 +51,13 @@ async function walkForMetadata(rootPath) {
   return results.sort();
 }
 async function signature(filePath) { try { const stat = await fs.stat(filePath); return `${stat.size}:${Math.trunc(stat.mtimeMs)}`; } catch { return "missing"; } }
-async function validateFunscriptFile(filePath) { const data = await readJson(filePath, null); return validateFunscriptData(data); }
+async function catalogFingerprint(root, metadataFiles) { return `${root}|${(await Promise.all(metadataFiles.map(async (file) => `${path.relative(root, file)}:${await signature(file)}`))).join("|")}`; }
+async function validateFunscriptFile(filePath) { return validateFunscriptData(await readJson(filePath, null)); }
+function normalizeTags(values) { return [...new Set((Array.isArray(values) ? values : []).map((value) => normalizeId(value)).filter(Boolean))]; }
 
 async function scanVideoMetadata(root, metadataPath, usedIds) {
-  const folder = path.dirname(metadataPath);
-  const metadata = await readJson(metadataPath, null);
-  const errors = validateMetadataShape(metadata, "video");
-  const id = String(metadata?.id ?? "").trim();
-  if (id && usedIds.has(id)) errors.push("duplicate-id");
+  const folder = path.dirname(metadataPath); const metadata = await readJson(metadataPath, null); const errors = validateMetadataShape(metadata, "video");
+  const id = String(metadata?.id ?? "").trim(); if (id && usedIds.has(id)) errors.push("duplicate-id");
   const videoAbsolute = path.resolve(folder, String(metadata?.videoFile ?? ""));
   if (!isInside(root, videoAbsolute)) errors.push("video-outside-library");
   if (!(await fileExists(videoAbsolute))) errors.push("missing-video");
@@ -61,8 +66,7 @@ async function scanVideoMetadata(root, metadataPath, usedIds) {
     const absolute = path.resolve(folder, String(filename));
     if (!isInside(root, absolute)) { errors.push(`funscript-outside-library:${difficulty}`); continue; }
     if (!(await fileExists(absolute))) { errors.push(`missing-funscript:${difficulty}`); continue; }
-    const validationErrors = await validateFunscriptFile(absolute);
-    funscriptDiagnostics[difficulty] = validationErrors;
+    const validationErrors = await validateFunscriptFile(absolute); funscriptDiagnostics[difficulty] = validationErrors;
     if (validationErrors.length) { errors.push(...validationErrors.map((error) => `invalid-funscript:${difficulty}:${error}`)); continue; }
     funscripts[difficulty] = pathToFileURL(absolute).href;
   }
@@ -73,8 +77,8 @@ async function scanVideoMetadata(root, metadataPath, usedIds) {
   return {
     kind:"video", id, title:String(metadata?.title ?? id ?? "Vidéo locale"), type:metadata?.type ?? "normal",
     durationSeconds:Math.max(0, Number(metadata?.durationSeconds) || 0), difficulties:Object.keys(funscripts),
-    themes:Array.isArray(metadata?.themes) ? metadata.themes : [], performers:Array.isArray(metadata?.performers) ? metadata.performers : [],
-    enabled:metadata?.enabled !== false, weight:Math.max(0.01, Number(metadata?.weight) || 1), allowRepeatInSameRun:metadata?.allowRepeatInSameRun === true,
+    themes:normalizeTags(metadata?.themes), performers:normalizeTags(metadata?.performers), enabled:metadata?.enabled !== false,
+    weight:Math.max(0.01, Number(metadata?.weight) || 1), allowRepeatInSameRun:metadata?.allowRepeatInSameRun === true,
     videoPath:await fileExists(videoAbsolute) ? pathToFileURL(videoAbsolute).href : null, funscripts,
     thumbnailPath:thumbnailAbsolute && await fileExists(thumbnailAbsolute) ? pathToFileURL(thumbnailAbsolute).href : null,
     metadataPath, available:errors.length === 0, errors:[...new Set(errors)], modifiedAt:(await fs.stat(metadataPath)).mtimeMs,
@@ -89,7 +93,7 @@ async function scanImageMetadata(root, metadataPath, usedIds) {
   const imageAbsolute = path.resolve(folder, String(metadata?.imageFile ?? "")); const thumbnailAbsolute = metadata?.thumbnailFile ? path.resolve(folder, metadata.thumbnailFile) : imageAbsolute;
   if (!isInside(root, imageAbsolute)) errors.push("image-outside-library"); if (!isInside(root, thumbnailAbsolute)) errors.push("thumbnail-outside-library");
   if (!(await fileExists(imageAbsolute))) errors.push("missing-image"); if (!(await fileExists(thumbnailAbsolute))) errors.push("missing-thumbnail"); if (id) usedIds.add(id);
-  return { kind:"image", id, title:String(metadata?.title ?? id ?? "Image locale"), type:metadata?.type ?? "special", themes:Array.isArray(metadata?.themes) ? metadata.themes : [], performers:Array.isArray(metadata?.performers) ? metadata.performers : [], enabled:metadata?.enabled !== false, imagePath:await fileExists(imageAbsolute) ? pathToFileURL(imageAbsolute).href : null, thumbnailPath:await fileExists(thumbnailAbsolute) ? pathToFileURL(thumbnailAbsolute).href : null, metadataPath, available:errors.length === 0, errors:[...new Set(errors)], modifiedAt:(await fs.stat(metadataPath)).mtimeMs, sourceSignature:[await signature(metadataPath), await signature(imageAbsolute), await signature(thumbnailAbsolute)].join("|") };
+  return { kind:"image", id, title:String(metadata?.title ?? id ?? "Image locale"), type:metadata?.type ?? "special", themes:normalizeTags(metadata?.themes), performers:normalizeTags(metadata?.performers), enabled:metadata?.enabled !== false, imagePath:await fileExists(imageAbsolute) ? pathToFileURL(imageAbsolute).href : null, thumbnailPath:await fileExists(thumbnailAbsolute) ? pathToFileURL(thumbnailAbsolute).href : null, metadataPath, available:errors.length === 0, errors:[...new Set(errors)], modifiedAt:(await fs.stat(metadataPath)).mtimeMs, sourceSignature:[await signature(metadataPath), await signature(imageAbsolute), await signature(thumbnailAbsolute)].join("|") };
 }
 
 async function scanLegacyFlatDirectory(directoryPath) {
@@ -102,18 +106,45 @@ async function scanLegacyFlatDirectory(directoryPath) {
   return entries;
 }
 
-async function scanDirectory(directoryPath = libraryPath()) {
-  if (!directoryPath || !(await fileExists(directoryPath))) return { schemaVersion:1, directoryPath, videos:[], images:[], entries:[], missing:true, errors:[], cacheUsed:false };
-  const metadataFiles = await walkForMetadata(directoryPath); const usedIds = new Set(); const videos = []; const images = [];
+function registryLabel(id) { return String(id).split("-").filter(Boolean).map((part) => part.charAt(0).toUpperCase() + part.slice(1)).join(" "); }
+async function updateRegistries(entries) {
+  const performers = await readJson(performerRegistryPath(), { schemaVersion:1, entries:{} });
+  const themes = await readJson(themeRegistryPath(), { schemaVersion:1, entries:{} });
+  performers.entries ||= {}; themes.entries ||= {};
+  for (const entry of entries) {
+    for (const id of entry.performers || []) if (!performers.entries[id]) performers.entries[id] = { displayName:registryLabel(id), aliases:[], enabled:true };
+    for (const id of entry.themes || []) if (!themes.entries[id]) themes.entries[id] = { label:registryLabel(id), aliases:[], enabled:true };
+  }
+  await writeJson(performerRegistryPath(), performers); await writeJson(themeRegistryPath(), themes);
+  return { performers, themes };
+}
+
+async function readCollection() { return await readJson(collectionPath(), { schemaVersion:1, videos:{}, images:{} }); }
+async function addUnavailableSnapshots(catalog) {
+  const collection = await readCollection(); const videoIds = new Set(catalog.videos.map((entry) => entry.id)); const imageIds = new Set(catalog.images.map((entry) => entry.id));
+  for (const [id, saved] of Object.entries(collection.videos || {})) if (!videoIds.has(id) && saved.snapshot) catalog.videos.push({ kind:"video", id, ...saved.snapshot, available:false, enabled:true, videoPath:null, funscripts:{}, difficulties:saved.snapshot.difficulties || [], errors:["media-unavailable"] });
+  for (const [id, saved] of Object.entries(collection.images || {})) if (!imageIds.has(id) && saved.snapshot) catalog.images.push({ kind:"image", id, ...saved.snapshot, available:false, enabled:true, imagePath:null, errors:["media-unavailable"] });
+  catalog.entries = catalog.videos; return catalog;
+}
+
+async function scanDirectory(directoryPath = libraryPath(), options = {}) {
+  if (!directoryPath || !(await fileExists(directoryPath))) return { schemaVersion:1, directoryPath, videos:[], images:[], entries:[], missing:true, errors:[], cacheUsed:false, registries:{ performers:{entries:{}}, themes:{entries:{}} } };
+  const metadataFiles = await walkForMetadata(directoryPath); const fingerprint = await catalogFingerprint(directoryPath, metadataFiles);
+  if (!options.force) {
+    const cached = await readJson(cachePath(), null);
+    if (cached?.directoryPath === directoryPath && cached?.fingerprint === fingerprint) return addUnavailableSnapshots({ ...cached, cacheUsed:true });
+  }
+  const usedIds = new Set(); const videos = []; const images = [];
   for (const metadataPath of metadataFiles) {
     const relative = path.relative(directoryPath, metadataPath).split(path.sep).map((part) => part.toLowerCase()); const metadata = await readJson(metadataPath, {}); const isImage = relative.includes("images") || Object.prototype.hasOwnProperty.call(metadata, "imageFile"); const media = isImage ? await scanImageMetadata(directoryPath, metadataPath, usedIds) : await scanVideoMetadata(directoryPath, metadataPath, usedIds); (isImage ? images : videos).push(media);
   }
   if (!metadataFiles.length) videos.push(...await scanLegacyFlatDirectory(directoryPath));
-  const catalog = { schemaVersion:1, directoryPath, videos, images, entries:videos, missing:false, scannedAt:new Date().toISOString(), cacheUsed:false, errors:[...videos, ...images].filter((entry) => entry.errors.length).map((entry) => ({ id:entry.id || path.basename(entry.metadataPath || "unknown"), kind:entry.kind, errors:entry.errors })) };
-  await writeJson(cachePath(), catalog); return catalog;
+  const registries = await updateRegistries([...videos, ...images]);
+  const catalog = { schemaVersion:1, directoryPath, videos, images, entries:videos, missing:false, scannedAt:new Date().toISOString(), cacheUsed:false, fingerprint, registries, errors:[...videos, ...images].filter((entry) => entry.errors.length).map((entry) => ({ id:entry.id || path.basename(entry.metadataPath || "unknown"), kind:entry.kind, errors:entry.errors })) };
+  await writeJson(cachePath(), catalog); return addUnavailableSnapshots(catalog);
 }
 
-async function ensureUniqueId(root, id) { const catalog = await scanDirectory(root); return ![...catalog.videos, ...catalog.images].some((entry) => entry.id === id); }
+async function ensureUniqueId(root, id) { const catalog = await scanDirectory(root, { force:true }); return ![...catalog.videos, ...catalog.images].some((entry) => entry.id === id); }
 async function copyFile(source, destination) { await fs.mkdir(path.dirname(destination), { recursive:true }); await fs.copyFile(source, destination); }
 
 async function importVideo(payload = {}) {
@@ -126,42 +157,74 @@ async function importVideo(payload = {}) {
   const validated = [];
   for (const entry of sourceFunscripts) { if (!(await fileExists(entry.path))) throw new Error(`Funscript introuvable : ${entry.path}`); const errors = await validateFunscriptFile(entry.path); if (errors.length) throw new Error(`Funscript invalide (${entry.difficulty || "default"}) : ${errors.join(", ")}`); const difficulty = ["easy", "normal", "hard", "default"].includes(entry.difficulty) ? entry.difficulty : "default"; if (validated.some((item) => item.difficulty === difficulty)) throw new Error(`La difficulté ${difficulty} est déclarée plusieurs fois.`); validated.push({ difficulty, source:entry.path, filename:`${difficulty}.funscript` }); }
   const type = VIDEO_TYPES.has(payload.type) ? payload.type : "normal"; const destination = path.join(root, "videos", type, id); if (await fileExists(destination)) throw new Error("Le dossier de destination existe déjà."); await fs.mkdir(destination, { recursive:true });
-  try { const videoFilename = `video${path.extname(sourceVideo).toLowerCase()}`; await copyFile(sourceVideo, path.join(destination, videoFilename)); for (const entry of validated) await copyFile(entry.source, path.join(destination, entry.filename)); let thumbnailFile; if (payload.thumbnailPath && await fileExists(payload.thumbnailPath)) { thumbnailFile = `thumbnail${path.extname(payload.thumbnailPath).toLowerCase()}`; await copyFile(payload.thumbnailPath, path.join(destination, thumbnailFile)); } const metadata = buildVideoMetadata({ ...payload, id, type, videoFile:videoFilename, thumbnailFile, funscripts:validated.map(({ difficulty, filename }) => ({ difficulty, filename })) }); const shapeErrors = validateMetadataShape(metadata, "video"); if (shapeErrors.length) throw new Error(`Métadonnées invalides : ${shapeErrors.join(", ")}`); await writeJson(path.join(destination, "metadata.json"), metadata); return { imported:true, id, destination, catalog:await scanDirectory(root) }; } catch (error) { await fs.rm(destination, { recursive:true, force:true }); throw error; }
+  try {
+    const videoFilename = `video${path.extname(sourceVideo).toLowerCase()}`; await copyFile(sourceVideo, path.join(destination, videoFilename));
+    for (const entry of validated) await copyFile(entry.source, path.join(destination, entry.filename));
+    const metadata = buildVideoMetadata({ ...payload, id, type, videoFile:videoFilename, funscripts:validated.map(({ difficulty, filename }) => ({ difficulty, filename })) });
+    const shapeErrors = validateMetadataShape(metadata, "video"); if (shapeErrors.length) throw new Error(`Métadonnées invalides : ${shapeErrors.join(", ")}`);
+    await writeJson(path.join(destination, "metadata.json"), metadata); const catalog = await scanDirectory(root, { force:true });
+    return { imported:true, id, destination, videoPath:pathToFileURL(path.join(destination, videoFilename)).href, catalog };
+  } catch (error) { await fs.rm(destination, { recursive:true, force:true }); throw error; }
+}
+
+async function finalizeVideoImport(payload = {}) {
+  const id = String(payload.id || ""); const catalog = await scanDirectory(libraryPath(), { force:true }); const media = catalog.videos.find((entry) => entry.id === id && entry.metadataPath);
+  if (!media) throw new Error("Vidéo importée introuvable.");
+  const metadata = await readJson(media.metadataPath, null); if (!metadata) throw new Error("Métadonnées introuvables.");
+  metadata.durationSeconds = Math.max(0, Math.round(Number(payload.durationSeconds) || 0));
+  const match = String(payload.thumbnailDataUrl || "").match(/^data:image\/(jpeg|jpg|webp|png);base64,(.+)$/);
+  if (match) { const extension = match[1] === "jpeg" || match[1] === "jpg" ? "jpg" : match[1]; const filename = `thumbnail.${extension}`; await fs.writeFile(path.join(path.dirname(media.metadataPath), filename), Buffer.from(match[2], "base64")); metadata.thumbnailFile = filename; }
+  await writeJson(media.metadataPath, metadata); return { finalized:true, catalog:await scanDirectory(libraryPath(), { force:true }) };
 }
 
 async function importImage(payload = {}) {
   const root = libraryPath(); const sourceImage = String(payload.sourceImage ?? ""); if (!(await fileExists(sourceImage))) throw new Error("L'image sélectionnée est introuvable."); if (!IMAGE_EXTENSIONS.has(path.extname(sourceImage).toLowerCase())) throw new Error("Format d'image non pris en charge."); const id = normalizeId(payload.id || payload.title || path.basename(sourceImage, path.extname(sourceImage))); if (!id) throw new Error("Impossible de générer un identifiant valide."); if (!(await ensureUniqueId(root, id))) throw new Error(`L'identifiant ${id} existe déjà.`); const type = IMAGE_TYPES.has(payload.type) ? payload.type : "special"; const destination = path.join(root, "images", type, id); await fs.mkdir(destination, { recursive:true });
-  try { const imageFilename = `image${path.extname(sourceImage).toLowerCase()}`; await copyFile(sourceImage, path.join(destination, imageFilename)); let thumbnailFile; if (payload.thumbnailPath && await fileExists(payload.thumbnailPath)) { thumbnailFile = `thumbnail${path.extname(payload.thumbnailPath).toLowerCase()}`; await copyFile(payload.thumbnailPath, path.join(destination, thumbnailFile)); } const metadata = buildImageMetadata({ ...payload, id, type, imageFile:imageFilename, thumbnailFile }); const shapeErrors = validateMetadataShape(metadata, "image"); if (shapeErrors.length) throw new Error(`Métadonnées invalides : ${shapeErrors.join(", ")}`); await writeJson(path.join(destination, "metadata.json"), metadata); return { imported:true, id, destination, catalog:await scanDirectory(root) }; } catch (error) { await fs.rm(destination, { recursive:true, force:true }); throw error; }
+  try { const imageFilename = `image${path.extname(sourceImage).toLowerCase()}`; await copyFile(sourceImage, path.join(destination, imageFilename)); const metadata = buildImageMetadata({ ...payload, id, type, imageFile:imageFilename }); const shapeErrors = validateMetadataShape(metadata, "image"); if (shapeErrors.length) throw new Error(`Métadonnées invalides : ${shapeErrors.join(", ")}`); await writeJson(path.join(destination, "metadata.json"), metadata); return { imported:true, id, destination, catalog:await scanDirectory(root, { force:true }) }; } catch (error) { await fs.rm(destination, { recursive:true, force:true }); throw error; }
 }
 
 async function chooseImportFiles(kind) {
   const isImage = kind === "image"; const primary = await dialog.showOpenDialog({ properties:["openFile"], filters:isImage ? [{ name:"Images", extensions:[...IMAGE_EXTENSIONS].map((value) => value.slice(1)) }] : [{ name:"Vidéos", extensions:[...VIDEO_EXTENSIONS].map((value) => value.slice(1)) }] }); if (primary.canceled || !primary.filePaths[0]) return { canceled:true }; if (isImage) return { canceled:false, sourceImage:primary.filePaths[0] }; const scripts = await dialog.showOpenDialog({ properties:["openFile", "multiSelections"], filters:[{ name:"Funscripts", extensions:["funscript"] }] }); if (scripts.canceled || !scripts.filePaths.length) return { canceled:true }; return { canceled:false, sourceVideo:primary.filePaths[0], funscriptPaths:scripts.filePaths };
 }
 
-async function readCollection() { return await readJson(collectionPath(), { schemaVersion:1, videos:{}, images:{} }); }
 async function updateCollection(update = {}) { const collection = await readCollection(); if (update.kind === "video" && update.id) collection.videos[update.id] = { ...(collection.videos[update.id] ?? {}), ...update.patch }; if (update.kind === "image" && update.id) collection.images[update.id] = { ...(collection.images[update.id] ?? {}), ...update.patch }; await writeJson(collectionPath(), collection); return collection; }
+async function unlockImage(event = {}) { const id = String(event.id || "").trim(); if (!id) return readCollection(); return updateCollection({ kind:"image", id, patch:{ unlocked:true, unlockedAt:event.at || new Date().toISOString(), unlockOrigin:event.origin || "Récompense", snapshot:event.snapshot || undefined } }); }
 async function readStats() { return await readJson(statsPath(), createEmptyStats()); }
 async function recordStats(event = {}) { const stats = applyPlaybackEvent(await readStats(), event); await writeJson(statsPath(), stats); return summarizeStats(stats); }
 async function recordCollectionProgress(event = {}) {
   if (event.playbackContext !== "run" && event.playbackContext !== "event") return readCollection();
   const id = String(event.videoId || "").trim(); if (!id) return readCollection();
-  const collection = await readCollection(); const previous = collection.videos[id] || {}; const now = event.at || new Date().toISOString();
-  const completedDifficulties = new Set(previous.completedDifficulties || []);
-  const patch = { discovered:true, discoveredAt:previous.discoveredAt || now, bestProgressPercent:Math.max(Number(previous.bestProgressPercent) || 0, Number(event.progressPercent) || 0) };
+  const collection = await readCollection(); const previous = collection.videos[id] || {}; const now = event.at || new Date().toISOString(); const completedDifficulties = new Set(previous.completedDifficulties || []);
+  const patch = { discovered:true, discoveredAt:previous.discoveredAt || now, bestProgressPercent:Math.max(Number(previous.bestProgressPercent) || 0, Number(event.progressPercent) || 0), snapshot:event.snapshot || previous.snapshot };
   if (event.type === "win") { completedDifficulties.add(String(event.difficulty || "default")); patch.completed = true; patch.completedAt = previous.completedAt || now; patch.completedDifficulties = [...completedDifficulties]; }
   collection.videos[id] = { ...previous, ...patch }; await writeJson(collectionPath(), collection); return collection;
 }
+async function recordRecentSession(event = {}) {
+  if (event.playbackContext !== "run" && event.playbackContext !== "event") return null;
+  const settings = await readSettings(); const store = await readJson(sessionsPath(), { schemaVersion:1, detailed:[], recentVideoIds:[] });
+  const id = String(event.videoId || "").trim(); if (!id) return store;
+  store.recentVideoIds = [id, ...(store.recentVideoIds || []).filter((value) => value !== id)].slice(0, MAX_ANTI_REPEAT_IDS);
+  if (settings.retainDetailedHistory !== false) {
+    store.detailed ||= []; store.detailed.unshift({ ...event, recordedAt:new Date().toISOString() }); store.detailed = store.detailed.slice(0, MAX_RECENT_SESSIONS);
+  } else store.detailed = [];
+  await writeJson(sessionsPath(), store); return store;
+}
 
-ipcMain.handle("media:scan-library", async () => scanDirectory());
-ipcMain.handle("media:choose-library", async () => { const result = await dialog.showOpenDialog({ properties:["openDirectory", "createDirectory"] }); if (result.canceled || !result.filePaths[0]) return { canceled:true }; selectedLibraryPath = result.filePaths[0]; await saveSettings(); return { canceled:false, ...(await scanDirectory()) }; });
+ipcMain.handle("media:scan-library", async (_event, options) => scanDirectory(libraryPath(), options || {}));
+ipcMain.handle("media:choose-library", async () => { const result = await dialog.showOpenDialog({ properties:["openDirectory", "createDirectory"] }); if (result.canceled || !result.filePaths[0]) return { canceled:true }; selectedLibraryPath = result.filePaths[0]; await saveSettings(); return { canceled:false, ...(await scanDirectory(libraryPath(), { force:true })) }; });
 ipcMain.handle("media:get-library-path", async () => libraryPath());
 ipcMain.handle("media:choose-import-files", (_event, kind) => chooseImportFiles(kind));
 ipcMain.handle("media:import-video", (_event, payload) => importVideo(payload));
+ipcMain.handle("media:finalize-video-import", (_event, payload) => finalizeVideoImport(payload));
 ipcMain.handle("media:import-image", (_event, payload) => importImage(payload));
+ipcMain.handle("media:get-registries", async () => ({ performers:await readJson(performerRegistryPath(), { schemaVersion:1, entries:{} }), themes:await readJson(themeRegistryPath(), { schemaVersion:1, entries:{} }) }));
+ipcMain.handle("media:get-settings", readSettings);
+ipcMain.handle("media:update-settings", (_event, patch) => saveSettings(patch));
 ipcMain.handle("collection:get", readCollection);
 ipcMain.handle("collection:update", (_event, update) => updateCollection(update));
-ipcMain.handle("playback:record", async (_event, event) => { await recordCollectionProgress(event); return recordStats(event); });
+ipcMain.handle("collection:unlock-image", (_event, event) => unlockImage(event));
+ipcMain.handle("playback:record", async (_event, event) => { await Promise.all([recordCollectionProgress(event), recordRecentSession(event)]); return recordStats(event); });
 ipcMain.handle("video-stats:get", async () => summarizeStats(await readStats()));
+ipcMain.handle("recent-sessions:get", async () => readJson(sessionsPath(), { schemaVersion:1, detailed:[], recentVideoIds:[] }));
 
 function createWindow() { const mainWindow = new BrowserWindow({ width:1280, height:720, minWidth:900, minHeight:600, backgroundColor:"#111111", webPreferences:{ contextIsolation:true, nodeIntegration:false, preload:path.join(__dirname, "preload.js") } }); mainWindow.loadFile(path.join(__dirname, "src", "index.html")); }
 app.whenReady().then(async () => { await loadSettings(); createWindow(); app.on("activate", () => { if (BrowserWindow.getAllWindows().length === 0) createWindow(); }); });
