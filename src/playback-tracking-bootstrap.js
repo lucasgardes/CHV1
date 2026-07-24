@@ -1,69 +1,14 @@
 "use strict";
-
-import { getGameRuntime } from "./game/runtime-access.js";
-
-const state = { active:null };
-
-function videoElement() { return document.getElementById("round-video"); }
-function contextFor(encounter) { return encounter?.playbackContext === "event" ? "event" : "run"; }
-function progressPercent(video) { return video && Number.isFinite(video.duration) && video.duration > 0 ? Math.min(100, Math.max(0, (video.currentTime / video.duration) * 100)) : 0; }
-function watchSeconds(video) { return video ? Math.max(0, Number(video.currentTime) || 0) : 0; }
-async function record(type, extra = {}) {
-  if (!state.active || !globalThis.chv1Playback?.record) return;
-  const video = videoElement();
-  await globalThis.chv1Playback.record({
-    type,
-    videoId:state.active.videoId,
-    difficulty:state.active.difficulty,
-    playbackContext:state.active.playbackContext,
-    watchSeconds:watchSeconds(video),
-    progressPercent:progressPercent(video),
-    ...extra
-  });
-  window.dispatchEvent(new CustomEvent("chv1:stats-updated"));
-  window.dispatchEvent(new CustomEvent("chv1:collection-updated"));
-}
-
-function initialize() {
-  const runtime = getGameRuntime();
-  const controller = runtime.encounterController;
-  const activeItems = runtime.activeItemController;
-  if (!controller || !activeItems) { window.setTimeout(initialize, 100); return; }
-  if (controller.__playbackTrackingConnected) return;
-  controller.__playbackTrackingConnected = true;
-
-  const originalLoad = controller.load.bind(controller);
-  controller.load = async (...args) => {
-    const encounter = await originalLoad(...args);
-    const videoId = encounter?.mediaId || String(encounter?.id || "").replace(/^local:/, "");
-    if (videoId) {
-      state.active = {
-        videoId,
-        difficulty:encounter.selectedFunscriptDifficulty || encounter.selectedDifficulty || encounter.defaultFunscriptDifficulty || "default",
-        playbackContext:contextFor(encounter)
-      };
-      await record("start");
-    } else state.active = null;
-    return encounter;
-  };
-
-  const originalComplete = controller.complete.bind(controller);
-  controller.complete = async (...args) => {
-    if (state.active) await record("win", { progressPercent:100 });
-    const result = await originalComplete(...args);
-    state.active = null;
-    return result;
-  };
-
-  const originalUse = activeItems.use.bind(activeItems);
-  activeItems.use = async (itemId, ...args) => {
-    const result = await originalUse(itemId, ...args);
-    await record("item-used", { itemId });
-    return result;
-  };
-
-  const defeatButton = document.getElementById("declare-defeat-button");
-  defeatButton?.addEventListener("click", () => { if (state.active) void record("loss").finally(() => { state.active = null; }); }, { capture:true });
-}
-
-window.addEventListener("DOMContentLoaded", initialize);
+import{getGameRuntime}from"./game/runtime-access.js";
+const state={active:null};
+const videoElement=()=>document.getElementById("round-video");
+const contextFor=(encounter)=>encounter?.playbackContext==="event"?"event":"run";
+const progressPercent=(video)=>video&&Number.isFinite(video.duration)&&video.duration>0?Math.min(100,Math.max(0,video.currentTime/video.duration*100)):0;
+const watchSeconds=(video)=>video?Math.max(0,Number(video.currentTime)||0):0;
+async function record(type,extra={}){if(!state.active||!globalThis.chv1Playback?.record)return;const video=videoElement();await globalThis.chv1Playback.record({type,videoId:state.active.videoId,title:state.active.title,videoType:state.active.videoType,themes:state.active.themes,performers:state.active.performers,durationSeconds:state.active.durationSeconds,difficulty:state.active.difficulty,playbackContext:state.active.playbackContext,watchSeconds:watchSeconds(video),progressPercent:progressPercent(video),itemCount:state.active.itemIds.length,itemIds:[...state.active.itemIds],firstItemUseSeconds:state.active.firstItemUseSeconds,...extra});window.dispatchEvent(new CustomEvent("chv1:stats-updated"));window.dispatchEvent(new CustomEvent("chv1:collection-updated"));}
+function initialize(){const runtime=getGameRuntime();const controller=runtime.encounterController;const activeItems=runtime.activeItemController;if(!controller||!activeItems){window.setTimeout(initialize,100);return;}if(controller.__playbackTrackingConnected)return;controller.__playbackTrackingConnected=true;
+ const originalLoad=controller.load.bind(controller);controller.load=async(...args)=>{const encounter=await originalLoad(...args);const videoId=encounter?.mediaId||String(encounter?.id||"").replace(/^local:/,"");if(videoId){state.active={videoId,title:encounter.title||videoId,videoType:encounter.type||"normal",themes:Array.isArray(encounter.themes)?encounter.themes:[],performers:Array.isArray(encounter.performers)?encounter.performers:[],durationSeconds:Number(encounter.durationSeconds)||0,difficulty:encounter.selectedFunscriptDifficulty||encounter.selectedDifficulty||encounter.defaultFunscriptDifficulty||"default",playbackContext:contextFor(encounter),itemIds:[],firstItemUseSeconds:null};await record("start");}else state.active=null;return encounter;};
+ const originalComplete=controller.complete.bind(controller);controller.complete=async(...args)=>{if(state.active)await record("win",{progressPercent:100});const result=await originalComplete(...args);state.active=null;return result;};
+ const originalUse=activeItems.use.bind(activeItems);activeItems.use=async(itemId,...args)=>{const result=await originalUse(itemId,...args);if(state.active){state.active.itemIds.push(itemId);if(state.active.firstItemUseSeconds==null)state.active.firstItemUseSeconds=watchSeconds(videoElement());await record("item-used",{itemId,usedAtSeconds:watchSeconds(videoElement())});}return result;};
+ const defeatButton=document.getElementById("declare-defeat-button");defeatButton?.addEventListener("click",()=>{if(state.active)void record("loss").finally(()=>{state.active=null;});},{capture:true});}
+window.addEventListener("DOMContentLoaded",initialize);
