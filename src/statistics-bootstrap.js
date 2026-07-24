@@ -1,59 +1,8 @@
 "use strict";
-
-const byId = (id) => document.getElementById(id);
-const percent = (value) => `${Math.round((Number(value) || 0) * 100)} %`;
-const duration = (seconds) => {
-  const total = Math.max(0, Math.round(Number(seconds) || 0));
-  const hours = Math.floor(total / 3600);
-  const minutes = Math.floor((total % 3600) / 60);
-  return `${hours} h ${String(minutes).padStart(2, "0")} min`;
-};
-
-function renderList(targetId, entries, formatter) {
-  const target = byId(targetId);
-  if (!target) return;
-  if (!entries?.length) { target.innerHTML = '<p class="statistics-empty">Aucune donnée.</p>'; return; }
-  target.replaceChildren(...entries.map((entry, index) => {
-    const row = document.createElement("article");
-    row.className = "statistics-row";
-    const rank = document.createElement("strong"); rank.textContent = String(index + 1);
-    const name = document.createElement("span"); name.textContent = entry.id;
-    const value = document.createElement("em"); value.textContent = formatter(entry);
-    row.append(rank, name, value);
-    return row;
-  }));
-}
-
-async function render() {
-  if (!globalThis.chv1VideoStats?.get) return;
-  const stats = await globalThis.chv1VideoStats.get();
-  const global = stats.global || {};
-  const summary = byId("statistics-summary");
-  summary?.replaceChildren(...[
-    ["Vidéos lancées", global.totalStarted || 0],
-    ["Victoires", global.totalWins || 0],
-    ["Défaites", global.totalLosses || 0],
-    ["Winrate global", percent((global.totalWins || 0) / Math.max(1, (global.totalWins || 0) + (global.totalLosses || 0)))],
-    ["Objets utilisés", global.totalItemsUsed || 0],
-    ["Temps cumulé", duration(global.totalWatchSeconds)]
-  ].map(([label, value]) => {
-    const card = document.createElement("article");
-    card.innerHTML = `<span>${label}</span><strong>${value}</strong>`;
-    return card;
-  }));
-  renderList("statistics-most-viewed", stats.mostViewed, (entry) => `${entry.started} lecture${entry.started > 1 ? "s" : ""}`);
-  renderList("statistics-best-winrate", stats.bestWinrate, (entry) => `${percent(entry.winrate)} · ${entry.completed} tentative${entry.completed > 1 ? "s" : ""}`);
-  renderList("statistics-worst-winrate", stats.worstWinrate, (entry) => `${percent(entry.winrate)} · ${entry.completed} tentative${entry.completed > 1 ? "s" : ""}`);
-  renderList("statistics-most-items", stats.mostItemsUsed, (entry) => `${entry.itemsUsed} objet${entry.itemsUsed > 1 ? "s" : ""}`);
-}
-
-function showStatistics() {
-  document.querySelectorAll(".game-screen").forEach((screen) => { screen.hidden = screen.id !== "statistics-screen"; });
-  document.querySelectorAll(".navigation-tab").forEach((tab) => tab.classList.remove("is-active"));
-  byId("statistics-navigation-tab")?.classList.add("is-active");
-  const defeat = byId("declare-defeat-button"); if (defeat) defeat.hidden = true;
-  void render();
-}
-
-window.addEventListener("DOMContentLoaded", () => byId("statistics-navigation-tab")?.addEventListener("click", showStatistics));
-window.addEventListener("chv1:stats-updated", () => { if (!byId("statistics-screen")?.hidden) void render(); });
+const byId=(id)=>document.getElementById(id);const percent=(value)=>`${Math.round((Number(value)||0)*100)} %`;const duration=(seconds)=>{const total=Math.max(0,Math.round(Number(seconds)||0));const h=Math.floor(total/3600),m=Math.floor(total%3600/60),s=total%60;return h?`${h} h ${String(m).padStart(2,"0")} min`:`${m} min ${String(s).padStart(2,"0")} s`;};
+function card(label,value){const el=document.createElement("article");const span=document.createElement("span");span.textContent=label;const strong=document.createElement("strong");strong.textContent=String(value);el.append(span,strong);return el;}
+function ranking(title,entries,formatter,onSelect){const section=document.createElement("section");const heading=document.createElement("h2");heading.textContent=title;section.append(heading);if(!entries?.length){const empty=document.createElement("p");empty.className="statistics-empty";empty.textContent="Aucune donnée.";section.append(empty);return section;}entries.forEach((entry,index)=>{const row=document.createElement("button");row.type="button";row.className="statistics-row";const rank=document.createElement("strong");rank.textContent=String(index+1);const name=document.createElement("span");name.textContent=entry.title||entry.id;const value=document.createElement("em");value.textContent=formatter(entry);row.append(rank,name,value);if(onSelect)row.addEventListener("click",()=>onSelect(entry));section.append(row);});return section;}
+function detail(entry){const target=byId("statistics-details");if(!target)return;const topItem=Object.entries(entry.items||{}).sort((a,b)=>b[1]-a[1])[0];const difficultyRows=Object.entries(entry.byDifficulty||{}).map(([name,value])=>{const attempts=(value.wins||0)+(value.losses||0);return `<tr><td>${name}</td><td>${value.started||0}</td><td>${value.wins||0}</td><td>${value.losses||0}</td><td>${percent(attempts?(value.wins||0)/attempts:0)}</td><td>${value.itemsUsed||0}</td></tr>`;}).join("");target.innerHTML=`<header><div><p class="screen-kicker">Détail vidéo</p><h2>${entry.title||entry.id}</h2></div><span>${entry.type||""}</span></header><div class="statistics-summary detail-summary"></div><section class="statistics-detail-grid"><article><h3>Progression</h3><p>Meilleure progression : <strong>${Math.round(entry.bestProgressPercent||0)} %</strong></p><p>Progression moyenne : <strong>${Math.round(entry.averageProgressPercent||0)} %</strong></p><p>Progression moyenne avant défaite : <strong>${Math.round(entry.averageLossProgressPercent||0)} %</strong></p></article><article><h3>Temps critique</h3><p>Défaite moyenne : <strong>${duration(entry.averageLossAtSeconds||0)}</strong></p><p>Première défaite : <strong>${duration(entry.earliestLossAtSeconds||0)}</strong></p><p>Défaite la plus tardive : <strong>${duration(entry.latestLossAtSeconds||0)}</strong></p><p>Premier objet moyen : <strong>${duration(entry.averageFirstItemUseSeconds||0)}</strong></p></article><article><h3>Objets</h3><p>Objet le plus utilisé : <strong>${topItem?`${topItem[0]} (${topItem[1]})`:"Aucun"}</strong></p><p>Winrate avec objet : <strong>${percent(entry.winrateWithItems||0)}</strong></p><p>Winrate sans objet : <strong>${percent(entry.winrateWithoutItems||0)}</strong></p></article></section><div class="statistics-table-wrap"><table><thead><tr><th>Difficulté</th><th>Lancements</th><th>Victoires</th><th>Défaites</th><th>Winrate</th><th>Objets</th></tr></thead><tbody>${difficultyRows||'<tr><td colspan="6">Aucune donnée</td></tr>'}</tbody></table></div>`;const summary=target.querySelector(".detail-summary");summary?.replaceChildren(card("Lancements",entry.started||0),card("Tentatives terminées",entry.completed||0),card("Winrate",percent(entry.winrate||0)),card("Objets utilisés",entry.itemsUsed||0),card("Moyenne d’objets",(entry.averageItemsUsed||0).toFixed(2)),card("Temps regardé",duration(entry.watchSeconds||0)));}
+async function render(){if(!globalThis.chv1VideoStats?.get)return;const stats=await globalThis.chv1VideoStats.get();const global=stats.global||{};byId("statistics-summary")?.replaceChildren(card("Vidéos lancées",global.totalStarted||0),card("Tentatives terminées",global.totalCompleted||0),card("Victoires",global.totalWins||0),card("Défaites",global.totalLosses||0),card("Winrate global",percent((global.totalWins||0)/Math.max(1,(global.totalWins||0)+(global.totalLosses||0)))),card("Objets utilisés",global.totalItemsUsed||0),card("Objets / vidéo",((global.totalItemsUsed||0)/Math.max(1,global.totalStarted||0)).toFixed(2)),card("Temps cumulé",duration(global.totalWatchSeconds||0)));const rankings=byId("statistics-rankings");rankings?.replaceChildren(ranking("Vidéos les plus vues",stats.mostViewed,e=>`${e.started} lancement${e.started>1?"s":""}`,detail),ranking("Meilleur winrate",stats.bestWinrate,e=>`${percent(e.winrate)} · ${e.completed} tentatives`,detail),ranking("Pire winrate",stats.worstWinrate,e=>`${percent(e.winrate)} · ${e.completed} tentatives`,detail),ranking("Plus d’objets utilisés",stats.mostItemsUsed,e=>`${e.itemsUsed} utilisation${e.itemsUsed>1?"s":""}`,detail),ranking("Thèmes les plus joués",(stats.mostPlayedThemes||[]).map(([id,count])=>({id,title:id,count})),e=>`${e.count} lecture${e.count>1?"s":""}`),ranking("Difficultés les plus réussies",stats.difficultyResults||[],e=>`${percent(e.winrate)} · ${e.wins} victoire${e.wins>1?"s":""}`));if(stats.videos?.length&&!byId("statistics-details")?.children.length)detail(stats.videos[0]);}
+function showStatistics(){document.querySelectorAll(".game-screen").forEach(screen=>{screen.hidden=screen.id!=="statistics-screen";});document.querySelectorAll(".navigation-tab").forEach(tab=>tab.classList.toggle("is-active",tab.id==="statistics-navigation-tab"));const defeat=byId("declare-defeat-button");if(defeat)defeat.hidden=true;void render();}
+window.addEventListener("DOMContentLoaded",()=>byId("statistics-navigation-tab")?.addEventListener("click",showStatistics));window.addEventListener("chv1:stats-updated",()=>{if(!byId("statistics-screen")?.hidden)void render();});
