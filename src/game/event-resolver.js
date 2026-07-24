@@ -12,6 +12,7 @@ export class EventResolver{
   case"gain-item":{const result=this.gainItem(effect.itemId);if(result.itemId)result.blessingGold=this.rewardCuriosity();return result;}
   case"random-item":{const result=this.gainItem(this.pickAvailableItem(effect.itemType)?.id??null);if(result.itemId)result.blessingGold=this.rewardCuriosity();return result;}
   case"choose-random-items":return{type:effect.type,candidates:this.pickAvailableItems(effect.count??2,effect.itemType)};
+  case"exchange-item":return this.exchangeItem(effect.giveItemId,effect.receiveItemId);
   case"lose-random-item":return this.loseRandomItem(effect.itemType);
   case"lose-item":return this.loseItem(effect.itemId);
   case"difficulty-shift":this.gameState.queueNextFunscriptDifficultyShift(effect.amount);return{type:effect.type,amount:effect.amount};
@@ -40,7 +41,15 @@ export class EventResolver{
  pickAvailableItem(itemType=null){if(!itemType)return getRandomAvailableItem(this.gameState.inventory);const available=getAvailableItems(this.gameState.inventory).filter((item)=>item.type===itemType);return available[Math.floor(this.random()*available.length)]??null;}
  pickAvailableItems(count,itemType=null){const pool=getAvailableItems(this.gameState.inventory).filter((item)=>!itemType||item.type===itemType);const selected=[];while(pool.length&&selected.length<count)selected.push(pool.splice(Math.floor(this.random()*pool.length),1)[0]);return selected.map((item)=>item.id);}
  gainItem(itemId){const item=getItemById(itemId);if(!item||!this.gameState.addItem(itemId))return{type:"gain-item",itemId:null};this.itemController?.ensureRuntimeState(itemId);return{type:"gain-item",itemId};}
- loseItem(itemId){if(!itemId||!this.gameState.removeItem(itemId))return{type:"lose-item",itemId:null};return{type:"lose-item",itemId};}
+ loseItem(itemId){if(!itemId||!this.gameState.removeItem(itemId))return{type:"lose-item",itemId:null};this.itemController?.runtimeStates?.delete(itemId);return{type:"lose-item",itemId};}
+ exchangeItem(giveItemId,receiveItemId){
+  if(!giveItemId||!receiveItemId||giveItemId===receiveItemId)return{type:"exchange-item",givenItemId:null,receivedItemId:null};
+  if(!this.gameState.hasItem(giveItemId)||this.gameState.hasItem(receiveItemId)||!getItemById(receiveItemId))return{type:"exchange-item",givenItemId:null,receivedItemId:null};
+  if(!this.gameState.removeItem(giveItemId))return{type:"exchange-item",givenItemId:null,receivedItemId:null};
+  if(!this.gameState.addItem(receiveItemId)){this.gameState.addItem(giveItemId);this.itemController?.ensureRuntimeState(giveItemId);return{type:"exchange-item",givenItemId:null,receivedItemId:null};}
+  this.itemController?.runtimeStates?.delete(giveItemId);this.itemController?.ensureRuntimeState(receiveItemId);
+  return{type:"exchange-item",givenItemId:giveItemId,receivedItemId:receiveItemId,blessingGold:this.rewardCuriosity()};
+ }
  loseRandomItem(itemType=null){const candidates=this.gameState.inventory.filter((itemId)=>!itemType||getItemById(itemId)?.type===itemType);if(!candidates.length)return{type:"lose-item",itemId:null};return this.loseItem(candidates[Math.floor(this.random()*candidates.length)]);}
  disableItem(itemId,encounters){const disabled=this.gameState.disableItem(itemId,encounters);return{type:"disable-item",itemId:disabled?itemId:null,encounters};}
  disableRandomItem(itemType,encounters){const candidates=this.gameState.inventory.filter((itemId)=>!itemType||getItemById(itemId)?.type===itemType);if(!candidates.length)return{type:"disable-item",itemId:null,encounters};return this.disableItem(candidates[Math.floor(this.random()*candidates.length)],encounters);}
