@@ -23,11 +23,23 @@ jobs:
           node-version: 22
           cache: npm
 
+      - name: Install FFmpeg
+        run: sudo apt-get update && sudo apt-get install -y ffmpeg
+
       - name: Install dependencies
         run: npm ci
 
       - name: Run build and unit tests
         run: npm run test:ci 2>&1 | tee test-results.log
+
+      - name: Upload generated test media
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: generated-test-media
+          path: assets/test/
+          if-no-files-found: warn
+          retention-days: 14
 
       - name: Upload test logs
         if: always()
