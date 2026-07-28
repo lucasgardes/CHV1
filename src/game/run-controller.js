@@ -2,7 +2,7 @@
 
 import { getItemById } from "../data/items.js";
 import { GAME_STATUS } from "./game-state.js";
-import { registerRunController } from "./runtime-access.js";
+import { getGameRuntime, registerRunController } from "./runtime-access.js";
 
 export class RunController {
   constructor({ gameState, mapController, itemController, screenController, video = null, stopEncounter = async () => {}, onStatusChange = () => {}, random = Math.random }) {
@@ -21,23 +21,35 @@ export class RunController {
     }
     return this.mapController.getMap().startNodeId;
   }
+  renderMap() {
+    const mapView = getGameRuntime().mapView;
+    this.screenController.showMap();
+    if (mapView && typeof mapView.render === "function") {
+      mapView.render({
+        gameState: this.gameState,
+        currentNode: this.mapController.getCurrentNode(),
+        accessibleNodes: this.mapController.getAccessibleNodes()
+      });
+      return;
+    }
+    this.syncMapDom();
+  }
   returnToPreviousNode() {
     const nodeId = this.findPreviousNodeId();
     this.gameState.setCurrentEncounter(null); this.gameState.moveToNode(nodeId); this.gameState.setStatus(GAME_STATUS.MAP);
-    this.syncMapDom(); this.screenController.showMap(); return nodeId;
+    this.renderMap(); return nodeId;
   }
   completeInterruptedEncounter() {
     const nodeId = this.gameState.currentNodeId;
     this.gameState.completeCurrentNode();
     this.gameState.setCurrentEncounter(null);
     this.gameState.setStatus(GAME_STATUS.MAP);
-    this.syncMapDom();
-    this.screenController.showMap();
+    this.renderMap();
     return nodeId;
   }
   startNewRun() {
     const startNodeId = this.mapController.getMap().startNodeId;
-    this.gameState.startRun(startNodeId); this.itemController.resetForRun(); this.syncMapDom(); this.screenController.showMap();
+    this.gameState.startRun(startNodeId); this.itemController.resetForRun(); this.renderMap();
     this.onStatusChange("Nouvelle partie commencée."); return { startNodeId };
   }
 
@@ -88,7 +100,7 @@ export class RunController {
     await this.stopCurrentEncounter(); this.consumeConsumable(itemId);
     this.gameState.completeCurrentNode(); this.gameState.setCurrentEncounter(null); this.gameState.setStatus(GAME_STATUS.MAP);
     this.gameState.queueNextFunscriptDifficultyShift(this.gameState.isItemUpgraded(itemId) ? 1 : 2);
-    this.syncMapDom(); this.screenController.showMap();
+    this.renderMap();
     this.onStatusChange("Round ignoré. La prochaine rencontre sera plus difficile.");
     return { itemId, reward:0, nodeId:node.id };
   }
