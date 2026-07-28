@@ -1,19 +1,155 @@
 "use strict";
 
-const ENDING_COPY=Object.freeze({"subject-perfect":{kicker:"Protocole terminé",title:"Le sujet parfait",body:"Le boss est vaincu, mais aucune sortie ne s’ouvre. L’entreprise a enfin trouvé le cobaye qu’elle recherchait."},escape:{kicker:"Protocole brisé",title:"L’évasion",body:"Le dispositif secret neutralise le verrouillage du complexe. Pour la première fois, une porte mène réellement vers l’extérieur."}});
-const BLESSING_SYMBOLS=Object.freeze({economy:"◉",map:"⌁",items:"◇",encounters:"△",events:"◌",campfire:"✦"});
-const RARITY_LABELS=Object.freeze({common:"Blanche",rare:"Dorée",unstable:"Instable"});
+const ENDING_COPY = Object.freeze({
+  "subject-perfect": {
+    kicker: "Protocole terminé",
+    title: "Le sujet parfait",
+    body: "Le boss est vaincu, mais aucune sortie ne s’ouvre. L’entreprise a enfin trouvé le cobaye qu’elle recherchait."
+  },
+  escape: {
+    kicker: "Protocole brisé",
+    title: "L’évasion",
+    body: "Le dispositif secret neutralise le verrouillage du complexe. Pour la première fois, une porte mène réellement vers l’extérieur."
+  }
+});
 
-function ensureBlessingStylesheet(){if(document.querySelector('link[data-blessing-ui-styles="true"]'))return;const link=document.createElement("link");link.rel="stylesheet";link.href="./blessing-ui.css";link.dataset.blessingUiStyles="true";document.head.append(link);}
-function createElement(tag,className,text){const element=document.createElement(tag);if(className)element.className=className;if(text!==undefined)element.textContent=text;return element;}
+const BLESSING_SYMBOLS = Object.freeze({ economy:"◉", map:"⌁", items:"◇", encounters:"△", events:"◌", campfire:"✦" });
+const RARITY_LABELS = Object.freeze({ common:"Blanche", rare:"Dorée", unstable:"Instable" });
 
-export class PhaseOneView{
- constructor({screen,kicker,title,message,primaryButton,secondaryButton}){ensureBlessingStylesheet();Object.assign(this,{screen,kicker,title,message,primaryButton,secondaryButton});this.choiceContainer=document.createElement("div");this.choiceContainer.className="blessing-choice-grid";this.message.after(this.choiceContainer);this.installWhiteSpaceScene();}
- installWhiteSpaceScene(){this.screen.classList.add("white-space-screen");const card=this.screen.querySelector(".phase-one-card");if(!card||card.querySelector(".white-space-figure"))return;const aura=createElement("div","white-space-aura");aura.setAttribute("aria-hidden","true");const figure=createElement("div","white-space-figure");figure.setAttribute("aria-hidden","true");figure.innerHTML='<span class="white-space-figure__head"></span><span class="white-space-figure__body"></span><span class="white-space-figure__halo"></span>';card.prepend(aura,figure);}
- hideAllGameScreens(){for(const element of document.querySelectorAll(".game-screen"))element.hidden=true;}
- clearChoices(){this.choiceContainer.replaceChildren();this.choiceContainer.hidden=true;this.screen.classList.remove("is-blessing-choice");}
- show({kicker,title,message,primaryLabel,onPrimary,secondaryLabel="",onSecondary=null}){this.hideAllGameScreens();this.clearChoices();this.kicker.textContent=kicker;this.title.textContent=title;this.message.textContent=message;this.primaryButton.hidden=false;this.primaryButton.textContent=primaryLabel;this.primaryButton.onclick=onPrimary;this.secondaryButton.hidden=!secondaryLabel;this.secondaryButton.textContent=secondaryLabel;this.secondaryButton.onclick=onSecondary;this.screen.hidden=false;}
- showWhiteSpace({loopCount,message,onContinue}){this.show({kicker:`Boucle ${String(loopCount).padStart(3,"0")}`,title:"L’espace blanc",message,primaryLabel:"Se réveiller",onPrimary:onContinue});}
- showBlessingChoice({loopCount,blessings,onSelected}){this.hideAllGameScreens();this.screen.classList.add("is-blessing-choice");this.kicker.textContent=`Boucle ${String(loopCount).padStart(3,"0")}`;this.title.textContent="Choisis une bénédiction";this.message.textContent="Chaque retour laisse une marque. Je peux légèrement infléchir le chemin.";this.primaryButton.hidden=true;this.secondaryButton.hidden=true;this.choiceContainer.hidden=false;this.choiceContainer.replaceChildren();for(const [index,blessing] of blessings.entries()){const knownRarity=Object.hasOwn(RARITY_LABELS,blessing.rarity);const rarity=knownRarity?blessing.rarity:"legacy";const button=document.createElement("button");button.type="button";button.className=`blessing-choice-card blessing-rarity-${rarity}`;button.style.setProperty("--blessing-index",String(index));button.dataset.blessingId=blessing.id;const symbol=createElement("span","blessing-choice-symbol",BLESSING_SYMBOLS[blessing.category]??(knownRarity?"✦":"◇"));symbol.setAttribute("aria-hidden","true");const rarityLabel=knownRarity?(RARITY_LABELS[blessing.rarity]??blessing.rarity):"Héritage matériel";const rarityElement=createElement("small","blessing-choice-rarity",rarityLabel);const name=createElement("strong","blessing-choice-name",blessing.name);const description=createElement("span","blessing-choice-description",blessing.description);const action=createElement("span","blessing-choice-action",knownRarity?"Accepter cette marque":"Conserver cet objet");button.append(symbol,rarityElement,name,description,action);button.addEventListener("click",()=>{if(button.classList.contains("is-selected"))return;button.classList.add("is-selected");for(const entry of this.choiceContainer.querySelectorAll("button")){entry.disabled=true;if(entry!==button)entry.classList.add("is-rejected");}window.setTimeout(()=>onSelected(blessing.id),window.matchMedia("(prefers-reduced-motion: reduce)").matches?0:520);});this.choiceContainer.append(button);}this.screen.hidden=false;}
- showEnding({ending,archiveReward=null,onRestart}){const copy=ENDING_COPY[ending]??ENDING_COPY["subject-perfect"];const secret=archiveReward?.unlocked?"\n\nToutes les pièces cachées de cette route ont été explorées. Un dernier fichier des anciens cobayes est déverrouillé, ainsi qu’une vidéo et son funscript exclusifs.":"";this.show({kicker:copy.kicker,title:copy.title,message:`${copy.body}${secret}`,primaryLabel:"Recommencer une partie",onPrimary:onRestart});}
+function ensureBlessingStylesheet() {
+  if (document.querySelector('link[data-blessing-ui-styles="true"]')) return;
+  const link = document.createElement("link");
+  link.rel = "stylesheet";
+  link.href = "./blessing-ui.css";
+  link.dataset.blessingUiStyles = "true";
+  document.head.append(link);
+}
+
+function createElement(tag, className, text) {
+  const element = document.createElement(tag);
+  if (className) element.className = className;
+  if (text !== undefined) element.textContent = text;
+  return element;
+}
+
+export class PhaseOneView {
+  constructor({ screen, kicker, title, message, primaryButton, secondaryButton }) {
+    ensureBlessingStylesheet();
+    Object.assign(this, { screen, kicker, title, message, primaryButton, secondaryButton });
+    this.choiceContainer = document.createElement("div");
+    this.choiceContainer.className = "blessing-choice-grid";
+    this.message.after(this.choiceContainer);
+    this.installWhiteSpaceScene();
+  }
+
+  installWhiteSpaceScene() {
+    this.screen.classList.add("white-space-screen");
+    const card = this.screen.querySelector(".phase-one-card");
+    if (!card || card.querySelector(".white-space-figure")) return;
+    const aura = createElement("div", "white-space-aura");
+    aura.setAttribute("aria-hidden", "true");
+    const figure = createElement("div", "white-space-figure");
+    figure.setAttribute("aria-hidden", "true");
+    figure.innerHTML = '<span class="white-space-figure__head"></span><span class="white-space-figure__body"></span><span class="white-space-figure__halo"></span>';
+    card.prepend(aura, figure);
+  }
+
+  hideAllGameScreens() {
+    for (const element of document.querySelectorAll(".game-screen")) element.hidden = true;
+  }
+
+  clearChoices() {
+    this.choiceContainer.replaceChildren();
+    this.choiceContainer.hidden = true;
+    this.screen.classList.remove("is-blessing-choice");
+  }
+
+  configureButton(button, { hidden, label = "", handler = null }) {
+    button.hidden = hidden;
+    button.disabled = false;
+    button.textContent = label;
+    button.onclick = null;
+    if (!hidden && typeof handler === "function") {
+      button.onclick = (event) => {
+        event.preventDefault();
+        handler();
+      };
+    }
+  }
+
+  show({ kicker, title, message, primaryLabel, onPrimary, secondaryLabel = "", onSecondary = null }) {
+    this.hideAllGameScreens();
+    this.clearChoices();
+    this.kicker.textContent = kicker;
+    this.title.textContent = title;
+    this.message.textContent = message;
+    this.configureButton(this.primaryButton, { hidden:false, label:primaryLabel, handler:onPrimary });
+    this.configureButton(this.secondaryButton, { hidden:!secondaryLabel, label:secondaryLabel, handler:onSecondary });
+    this.screen.hidden = false;
+  }
+
+  showWhiteSpace({ loopCount, message, onContinue }) {
+    this.show({
+      kicker: `Boucle ${String(loopCount).padStart(3, "0")}`,
+      title: "L’espace blanc",
+      message,
+      primaryLabel: "Se réveiller",
+      onPrimary: onContinue
+    });
+  }
+
+  showBlessingChoice({ loopCount, blessings, onSelected }) {
+    this.hideAllGameScreens();
+    this.screen.classList.add("is-blessing-choice");
+    this.kicker.textContent = `Boucle ${String(loopCount).padStart(3, "0")}`;
+    this.title.textContent = "Choisis une bénédiction";
+    this.message.textContent = "Chaque retour laisse une marque. Je peux légèrement infléchir le chemin.";
+    this.configureButton(this.primaryButton, { hidden:true });
+    this.configureButton(this.secondaryButton, { hidden:true });
+    this.choiceContainer.hidden = false;
+    this.choiceContainer.replaceChildren();
+
+    for (const [index, blessing] of blessings.entries()) {
+      const knownRarity = Object.hasOwn(RARITY_LABELS, blessing.rarity);
+      const rarity = knownRarity ? blessing.rarity : "legacy";
+      const button = document.createElement("button");
+      button.type = "button";
+      button.className = `blessing-choice-card blessing-rarity-${rarity}`;
+      button.style.setProperty("--blessing-index", String(index));
+      button.dataset.blessingId = blessing.id;
+      const symbol = createElement("span", "blessing-choice-symbol", BLESSING_SYMBOLS[blessing.category] ?? (knownRarity ? "✦" : "◇"));
+      symbol.setAttribute("aria-hidden", "true");
+      const rarityLabel = knownRarity ? (RARITY_LABELS[blessing.rarity] ?? blessing.rarity) : "Héritage matériel";
+      const rarityElement = createElement("small", "blessing-choice-rarity", rarityLabel);
+      const name = createElement("strong", "blessing-choice-name", blessing.name);
+      const description = createElement("span", "blessing-choice-description", blessing.description);
+      const action = createElement("span", "blessing-choice-action", knownRarity ? "Accepter cette marque" : "Conserver cet objet");
+      button.append(symbol, rarityElement, name, description, action);
+      button.addEventListener("click", () => {
+        if (button.classList.contains("is-selected")) return;
+        button.classList.add("is-selected");
+        for (const entry of this.choiceContainer.querySelectorAll("button")) {
+          entry.disabled = true;
+          if (entry !== button) entry.classList.add("is-rejected");
+        }
+        window.setTimeout(() => onSelected(blessing.id), window.matchMedia("(prefers-reduced-motion: reduce)").matches ? 0 : 520);
+      });
+      this.choiceContainer.append(button);
+    }
+    this.screen.hidden = false;
+  }
+
+  showEnding({ ending, archiveReward = null, onRestart }) {
+    const copy = ENDING_COPY[ending] ?? ENDING_COPY["subject-perfect"];
+    const secret = archiveReward?.unlocked
+      ? "\n\nToutes les pièces cachées de cette route ont été explorées. Un dernier fichier des anciens cobayes est déverrouillé, ainsi qu’une vidéo et son funscript exclusifs."
+      : "";
+    this.show({
+      kicker: copy.kicker,
+      title: copy.title,
+      message: `${copy.body}${secret}`,
+      primaryLabel: "Recommencer une partie",
+      onPrimary: onRestart
+    });
+  }
 }
