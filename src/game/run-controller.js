@@ -26,6 +26,15 @@ export class RunController {
     this.gameState.setCurrentEncounter(null); this.gameState.moveToNode(nodeId); this.gameState.setStatus(GAME_STATUS.MAP);
     this.syncMapDom(); this.screenController.showMap(); return nodeId;
   }
+  completeInterruptedEncounter() {
+    const nodeId = this.gameState.currentNodeId;
+    this.gameState.completeCurrentNode();
+    this.gameState.setCurrentEncounter(null);
+    this.gameState.setStatus(GAME_STATUS.MAP);
+    this.syncMapDom();
+    this.screenController.showMap();
+    return nodeId;
+  }
   startNewRun() {
     const startNodeId = this.mapController.getMap().startNodeId;
     this.gameState.startRun(startNodeId); this.itemController.resetForRun(); this.syncMapDom(); this.screenController.showMap();
@@ -37,8 +46,8 @@ export class RunController {
     const values = this.itemController.getEffectiveValues(itemId) ?? {};
     await this.stopCurrentEncounter(); this.consumeConsumable(itemId);
     const penalty = Math.max(0, Math.round(25 * (Number(values.penaltyMultiplier) || 0)));
-    const lostGold = this.gameState.loseGold(penalty); const returnNodeId = this.returnToPreviousNode();
-    this.onStatusChange(`Bouton d’urgence activé : ${lostGold} or perdu.`); return { itemId, lostGold, returnNodeId };
+    const lostGold = this.gameState.loseGold(penalty); const completedNodeId = this.completeInterruptedEncounter();
+    this.onStatusChange(`Bouton d’urgence activé : ${lostGold} or perdu.`); return { itemId, lostGold, completedNodeId };
   }
 
   armDelayedProtection(itemId = "delayed-protection") {
