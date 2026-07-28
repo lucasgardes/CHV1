@@ -35,32 +35,23 @@ export class DefeatController {
   processDefeat() {
     const protection = this.findProtection();
     if (!protection) {
-      this.gameState.setCurrentEncounter(null); this.gameState.setStatus(GAME_STATUS.GAME_OVER);
+      this.gameState.setCurrentEncounter(null);
+      this.gameState.setStatus(GAME_STATUS.GAME_OVER);
       return { protected:false, protectionId:null, action:"game-over", returnNodeId:null, restartRun:true };
     }
+
     this.consumeProtection(protection);
-    const upgraded = this.gameState.isItemUpgraded(protection.id);
-    if (protection.id === "second-chance") {
-      const pauseSeconds = Number(this.values("second-chance", { pauseSeconds:upgraded ? 10 : 0 }).pauseSeconds) || 0;
-      this.gameState.setStatus(GAME_STATUS.ENCOUNTER);
-      return { protected:true, protectionId:protection.id, action:"restart-current-encounter", pauseSeconds, returnNodeId:null, restartRun:false };
-    }
-    if (protection.id === "mini-checkpoint") {
-      const rewindRounds = Number(this.values("mini-checkpoint", { rewindRounds:upgraded ? 1 : 2 }).rewindRounds) || (upgraded ? 1 : 2);
-      this.gameState.setStatus(GAME_STATUS.ENCOUNTER);
-      return { protected:true, protectionId:protection.id, action:"rewind-current-encounter", rewindRounds, returnNodeId:null, restartRun:false };
-    }
-    if (protection.id === "delayed-protection") {
-      const rewardMultiplier = Number(this.values("delayed-protection", { rewardMultiplier:upgraded ? .5 : 0 }).rewardMultiplier) || 0;
-      const node = this.mapController.getCurrentNode();
-      const reward = Math.max(0, Math.round((Number(node?.rewardGold) || 0) * rewardMultiplier));
-      if (reward) this.gameState.addGold(reward);
-      this.gameState.completeCurrentNode(); this.gameState.setCurrentEncounter(null); this.gameState.setStatus(GAME_STATUS.MAP);
-      return { protected:true, protectionId:protection.id, action:"complete-encounter", rewardMultiplier, reward, returnNodeId:this.gameState.currentNodeId, restartRun:false };
-    }
-    const pauseSeconds = Number(this.values("last-stand", { pauseSeconds:upgraded ? 10 : 0 }).pauseSeconds) || 0;
-    const returnNodeId = this.findPreviousNodeId(1);
-    this.gameState.setCurrentEncounter(null); this.gameState.moveToNode(returnNodeId); this.gameState.setStatus(GAME_STATUS.MAP);
-    return { protected:true, protectionId:protection.id, action:"survive", pauseSeconds, returnNodeId, restartRun:false };
+
+    // Une protection contre la défaite ne relance jamais une vidéo et ne la rembobine pas.
+    // Le contrôleur de rencontre doit terminer le round par son flux de réussite normal afin
+    // d'appliquer correctement la progression, les récompenses et les recharges.
+    this.gameState.setStatus(GAME_STATUS.ENCOUNTER);
+    return {
+      protected:true,
+      protectionId:protection.id,
+      action:"complete-current-encounter",
+      returnNodeId:this.gameState.currentNodeId,
+      restartRun:false
+    };
   }
 }
