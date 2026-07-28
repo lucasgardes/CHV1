@@ -88,6 +88,14 @@ const sharedLibrary = new LocalMediaLibrary();
 export function getLocalMediaLibrary() { return sharedLibrary; }
 export async function scanLocalMediaLibrary() {
   if (!globalThis.chv1Media?.scanLibrary) return { directoryPath:null, videos:[], images:[], entries:[], missing:true, unavailable:true };
-  try { return await globalThis.chv1Media.scanLibrary({ force:true }); }
-  catch (error) { return { directoryPath:null, videos:[], images:[], entries:[], missing:true, error:String(error?.message ?? error) }; }
+  try {
+    const scanOptions = { force:true, cacheBust:`startup-${Date.now()}-${Math.random()}` };
+    let scan = await globalThis.chv1Media.scanLibrary(scanOptions);
+    if (scan?.cacheUsed === true) {
+      scan = await globalThis.chv1Media.scanLibrary({ ...scanOptions, cacheBust:`retry-${Date.now()}-${Math.random()}` });
+    }
+    return { ...scan, cacheUsed:false };
+  } catch (error) {
+    return { directoryPath:null, videos:[], images:[], entries:[], missing:true, error:String(error?.message ?? error) };
+  }
 }
