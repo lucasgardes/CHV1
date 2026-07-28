@@ -27,10 +27,15 @@ export class EventItemActions {
   useBlankContract(event) {
     if (!this.gameState.hasItem("blank-contract")) return null;
     const index = event.choices.findIndex((choice) => choice.negative === true || isNegativeEffect(choice.effect));
-    if (index < 0) return null;
+
+    // Rerender the untouched event rather than returning null. EventView's
+    // fallback previously re-enabled every button, including choices that were
+    // disabled because their requirements could not be satisfied.
+    if (index < 0) return { ...event, choices:[...event.choices] };
+
     const sourceEvent = this.eventEngine.preview({ excludedIds:[event.id] });
     const replacement = sourceEvent?.choices?.find((choice) => !isNegativeEffect(choice.effect)) ?? sourceEvent?.choices?.[0] ?? null;
-    if (!replacement) return null;
+    if (!replacement) return { ...event, choices:[...event.choices] };
     const upgraded = this.gameState.isItemUpgraded("blank-contract");
     this.gameState.removeItem("blank-contract");
     const choices = event.choices.map((choice, choiceIndex) => choiceIndex === index ? {
