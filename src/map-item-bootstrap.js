@@ -1,6 +1,7 @@
 "use strict";
 
 import "./event-ui-bootstrap.js";
+import "./collection-ui-bootstrap.js";
 import { getItemById, ITEM_TYPES } from "./data/items.js";
 import { getGameRuntime } from "./game/runtime-access.js";
 import { createItemVisual } from "./ui/item-visual.js";
