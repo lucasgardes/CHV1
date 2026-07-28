@@ -1,6 +1,8 @@
 "use strict";
 
 import { createItemVisual, getItemTypeLabel } from "./item-visual.js";
+import { getGameRuntime } from "../game/runtime-access.js";
+import { getBlessingById } from "../data/blessings.js";
 
 const RARITY_LABELS = Object.freeze({ common: "Commun", rare: "Rare", cursed: "Maudit" });
 
@@ -63,6 +65,7 @@ export class ShopView {
     this.goldValue.textContent = String(gold);
     this.stockList.replaceChildren();
     this.stockList.classList.add("shop-stock-grid");
+    this.renderBlessingCalculationNotice();
 
     if (items.length === 0 && stockCapacity === 0) {
       const empty = createElement("p", "room-empty-message", "Aucun objet disponible.");
@@ -82,9 +85,22 @@ export class ShopView {
       this.stockList.append(empty);
     }
 
-    this.rerollButton.textContent = rerollCost === 0 ? "Renouveler le stock — gratuit" : `Renouveler le stock — ${rerollCost} or`;
+    const activeBlessingId = getGameRuntime().gameState?.activeBlessingId;
+    const freeByBlessing = rerollCost === 0 && activeBlessingId === "generous-hand";
+    this.rerollButton.textContent = freeByBlessing ? "Renouveler le stock — gratuit grâce à Main généreuse" : rerollCost === 0 ? "Renouveler le stock — gratuit" : `Renouveler le stock — ${rerollCost} or`;
     this.rerollButton.disabled = gold < rerollCost;
     this.rerollButton.classList.toggle("is-unaffordable", gold < rerollCost);
+  }
+
+  renderBlessingCalculationNotice() {
+    const card = this.screen?.querySelector(".modal-card");
+    if (!(card instanceof HTMLElement)) return;
+    card.querySelector(".shop-blessing-calculation")?.remove();
+    const blessing = getBlessingById(getGameRuntime().gameState?.activeBlessingId);
+    if (!blessing || !["merchant-favor", "generous-hand"].includes(blessing.id)) return;
+    const notice = createElement("p", "shop-blessing-calculation", `✦ ${blessing.name} est prise en compte dans les calculs de cette boutique.`);
+    const toolbar = card.querySelector(".room-toolbar");
+    toolbar?.insertAdjacentElement("afterend", notice);
   }
 
   createItemCard(entry) {
@@ -127,13 +143,17 @@ export class ShopView {
     const inflationMultiplier = Number(details.inflationMultiplier ?? 1);
     const eventMultiplier = Number(details.eventMultiplier ?? 1);
     const discount = Number(details.discount ?? 0);
+    const activeBlessingId = getGameRuntime().gameState?.activeBlessingId;
+    const blessingDiscount = activeBlessingId === "merchant-favor" ? Math.min(.1, discount) : 0;
+    const otherDiscount = Math.max(0, discount - blessingDiscount);
     const adjusted = inflationMultiplier !== 1 || eventMultiplier !== 1;
     const discounted = discount > 0;
 
     addRow("Prix de base", `${basePrice} or`, adjusted || discounted ? "is-reference" : "");
     if (inflationMultiplier !== 1) addRow("Inflation", `+${formatPercent(inflationMultiplier)}`, "is-increase");
     if (eventMultiplier !== 1) addRow("Modificateur d’événement", `${formatPercent(eventMultiplier)}`, eventMultiplier > 1 ? "is-increase" : "is-discount");
-    if (discounted) addRow("Réductions cumulées", `−${Math.round(discount * 100)} %`, "is-discount");
+    if (blessingDiscount > 0) addRow("Bénédiction · Faveur des marchands", `−${Math.round(blessingDiscount * 100)} %`, "is-discount is-blessing");
+    if (otherDiscount > 0) addRow("Autres réductions", `−${Math.round(otherDiscount * 100)} %`, "is-discount");
     addRow("Prix final", `${finalPrice} or`, "is-final");
     return panel;
   }
