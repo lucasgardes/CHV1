@@ -10,7 +10,7 @@
     "test:unit": "node --test tests/*.test.js",
     "test:media": "node scripts/generate-test-media.mjs",
     "test:e2e:deps": "npm install --no-save --package-lock=false playwright-core@1.55.0",
-    "test:e2e": "npm run build && npm run test:e2e:deps && node tests/e2e/electron-smoke.mjs && node tests/e2e/electron-long-run.mjs && node tests/e2e/electron-item-flow.mjs && node tests/e2e/electron-defeat-blessing-flow.mjs && node tests/e2e/electron-elite-double-reward.mjs && node tests/e2e/electron-event-result-flow.mjs && node tests/e2e/electron-shop-campfire-flow.mjs && node tests/e2e/electron-boss-ending-flow.mjs && node tests/e2e/electron-collection-library-flow.mjs && node tests/e2e/electron-library-persistence.mjs && node tests/e2e/electron-media-import-flow.mjs",
+    "test:e2e": "npm run build && npm run test:e2e:deps && node tests/e2e/electron-smoke.mjs && node tests/e2e/electron-long-run.mjs && node tests/e2e/electron-item-flow.mjs && node tests/e2e/electron-defeat-blessing-flow.mjs && node tests/e2e/electron-elite-double-reward.mjs && node tests/e2e/electron-event-result-flow.mjs && node tests/e2e/electron-shop-campfire-flow.mjs && node tests/e2e/electron-boss-ending-flow.mjs && node tests/e2e/electron-collection-library-flow.mjs && node tests/e2e/electron-library-persistence.mjs && node tests/e2e/electron-media-import-flow.mjs && node tests/e2e/electron-statistics-privacy-flow.mjs",
     "test:ci": "npm run test:media && npm run build && npm run test:unit",
     "start": "npm run build && electron ."
   },
