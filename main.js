@@ -17,7 +17,7 @@ async function fileExists(filePath) { try { await fs.access(filePath); return tr
 async function readJson(filePath, fallback = null) { try { return JSON.parse(await fs.readFile(filePath, "utf8")); } catch { return fallback; } }
 async function writeJson(filePath, value) { await fs.mkdir(path.dirname(filePath), { recursive:true }); await fs.writeFile(filePath, `${JSON.stringify(value, null, 2)}\n`, "utf8"); }
 function isInside(rootPath, candidatePath) { const relative = path.relative(rootPath, candidatePath); return relative === "" || (!relative.startsWith("..") && !path.isAbsolute(relative)); }
-function defaultLibraryPath() { return path.join(app.getPath("userData"), "media"); }
+function defaultLibraryPath() { return "D:\\Yo\\projet\\finished"; }
 function libraryPath() { return selectedLibraryPath || defaultLibraryPath(); }
 function userDataPath(filename) { return path.join(app.getPath("userData"), filename); }
 function settingsPath() { return userDataPath("media-settings.json"); }
