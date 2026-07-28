@@ -66,17 +66,90 @@ function setupInventoryDock(runtime) {
   refresh();
 }
 
+function setupDubiousCoupon(shopScreen, shopCard) {
+  const couponButton = document.createElement("button");
+  couponButton.type = "button";
+  couponButton.className = "secondary-button";
+  couponButton.textContent = "Utiliser le Coupon douteux";
+  couponButton.hidden = true;
+
+  const choicePanel = document.createElement("section");
+  choicePanel.className = "dubious-coupon-choice-panel";
+  choicePanel.hidden = true;
+
+  const title = document.createElement("p");
+  title.className = "screen-description";
+  title.textContent = "Choisis l’objet gratuit obtenu grâce au Coupon douteux.";
+
+  const choiceList = document.createElement("div");
+  choiceList.className = "choice-list dubious-coupon-choice-list";
+
+  const cancelButton = document.createElement("button");
+  cancelButton.type = "button";
+  cancelButton.className = "secondary-button";
+  cancelButton.textContent = "Annuler";
+  cancelButton.addEventListener("click", () => {
+    choicePanel.hidden = true;
+    couponButton.hidden = false;
+    choiceList.replaceChildren();
+  });
+
+  choicePanel.append(title, choiceList, cancelButton);
+
+  couponButton.addEventListener("click", () => {
+    const controller = getGameRuntime().roomController;
+    if (!controller) return;
+    const choices = controller.useDubiousCoupon();
+    if (!Array.isArray(choices) || choices.length === 0) return;
+
+    choiceList.replaceChildren();
+    for (const itemId of choices) {
+      const item = getItemById(itemId);
+      const button = document.createElement("button");
+      button.type = "button";
+      button.className = "secondary-button dubious-coupon-choice";
+      button.dataset.itemId = itemId;
+      button.textContent = item?.name ?? itemId;
+      button.title = item?.description ?? "Objet gratuit";
+      button.addEventListener("click", () => {
+        if (!controller.redeemDubiousCoupon(itemId)) return;
+        choicePanel.hidden = true;
+        choiceList.replaceChildren();
+        couponButton.hidden = true;
+      });
+      choiceList.append(button);
+    }
+
+    couponButton.hidden = true;
+    choicePanel.hidden = false;
+  });
+
+  const leaveButton = document.getElementById("shop-leave-button");
+  shopCard.insertBefore(couponButton, leaveButton);
+  shopCard.insertBefore(choicePanel, leaveButton);
+
+  const refreshVisibility = () => {
+    const state = getGameRuntime().gameState;
+    const shouldShow = !shopScreen.hidden && Boolean(state?.hasItem("dubious-coupon"));
+    if (!shouldShow) {
+      couponButton.hidden = true;
+      choicePanel.hidden = true;
+      choiceList.replaceChildren();
+      return;
+    }
+    if (choicePanel.hidden) couponButton.hidden = false;
+  };
+
+  new MutationObserver(refreshVisibility).observe(shopScreen, { attributes:true, attributeFilter:["hidden"] });
+  refreshVisibility();
+}
+
 function initialize(runtime) {
   setupInventoryDock(runtime);
   document.getElementById("map-item-actions")?.remove();
   const shopScreen = document.getElementById("shop-screen");
   const shopCard = shopScreen?.querySelector(".modal-card");
-  if (shopCard) {
-    const couponButton = document.createElement("button"); couponButton.type="button"; couponButton.className="secondary-button"; couponButton.textContent="Utiliser le Coupon douteux"; couponButton.hidden=true;
-    couponButton.addEventListener("click",()=>{const controller=getGameRuntime().roomController;if(!controller)return;const choices=controller.useDubiousCoupon();if(!choices.length)return;const labels=choices.map((id,index)=>`${index+1}. ${getItemById(id)?.name??id}`).join("\n");const answer=Number(window.prompt(`Choisis l’objet gratuit :\n\n${labels}`,"1"))-1;const itemId=choices[answer];if(itemId&&controller.redeemDubiousCoupon(itemId))couponButton.hidden=true;});
-    shopCard.insertBefore(couponButton,document.getElementById("shop-leave-button"));
-    new MutationObserver(()=>{const state=getGameRuntime().gameState;couponButton.hidden=shopScreen.hidden||!state?.hasItem("dubious-coupon");}).observe(shopScreen,{attributes:true,attributeFilter:["hidden"]});
-  }
+  if (shopScreen instanceof HTMLElement && shopCard instanceof HTMLElement) setupDubiousCoupon(shopScreen, shopCard);
 }
 
 window.addEventListener("DOMContentLoaded", waitForRuntime);
