@@ -88,6 +88,6 @@ const sharedLibrary = new LocalMediaLibrary();
 export function getLocalMediaLibrary() { return sharedLibrary; }
 export async function scanLocalMediaLibrary() {
   if (!globalThis.chv1Media?.scanLibrary) return { directoryPath:null, videos:[], images:[], entries:[], missing:true, unavailable:true };
-  try { return await globalThis.chv1Media.scanLibrary(); }
+  try { return await globalThis.chv1Media.scanLibrary({ force:true }); }
   catch (error) { return { directoryPath:null, videos:[], images:[], entries:[], missing:true, error:String(error?.message ?? error) }; }
 }
