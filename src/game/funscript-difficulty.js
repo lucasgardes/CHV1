@@ -13,6 +13,7 @@ const ORDERED_DIFFICULTIES = Object.freeze([
 ]);
 
 export function normalizeFunscriptDifficulty(value) {
+  if (value === "normal" || value === "default") return FUNSCRIPT_DIFFICULTIES.MEDIUM;
   return ORDERED_DIFFICULTIES.includes(value)
     ? value
     : FUNSCRIPT_DIFFICULTIES.MEDIUM;
@@ -61,20 +62,26 @@ function getPassiveDifficultyShift(gameState, random) {
 
 function resolveAvailablePath(encounter, requestedDifficulty) {
   const variants = encounter?.funscripts ?? {};
-  const requestedPath = variants[requestedDifficulty];
+  const aliases = requestedDifficulty === FUNSCRIPT_DIFFICULTIES.MEDIUM
+    ? [FUNSCRIPT_DIFFICULTIES.MEDIUM, "normal"]
+    : [requestedDifficulty];
 
-  if (requestedPath) {
-    return {
-      difficulty: requestedDifficulty,
-      path: requestedPath,
-      fallbackUsed: false
-    };
+  for (const difficulty of aliases) {
+    if (variants[difficulty]) {
+      return {
+        difficulty,
+        path: variants[difficulty],
+        fallbackUsed: difficulty !== requestedDifficulty
+      };
+    }
   }
 
   const fallbackOrder = [
     FUNSCRIPT_DIFFICULTIES.MEDIUM,
+    "normal",
     FUNSCRIPT_DIFFICULTIES.EASY,
-    FUNSCRIPT_DIFFICULTIES.HARD
+    FUNSCRIPT_DIFFICULTIES.HARD,
+    "default"
   ];
 
   for (const difficulty of fallbackOrder) {
@@ -85,6 +92,15 @@ function resolveAvailablePath(encounter, requestedDifficulty) {
         fallbackUsed: difficulty !== requestedDifficulty
       };
     }
+  }
+
+  const firstAvailable = Object.entries(variants).find(([, path]) => Boolean(path));
+  if (firstAvailable) {
+    return {
+      difficulty: firstAvailable[0],
+      path: firstAvailable[1],
+      fallbackUsed: true
+    };
   }
 
   if (encounter?.funscriptPath) {
