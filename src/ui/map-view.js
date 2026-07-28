@@ -50,8 +50,15 @@ export class MapView{
   const symbol=document.createElement("span");symbol.className="map-node-symbol";symbol.textContent=SYMBOLS[node.type]??"•";const label=document.createElement("span");label.className="map-node-label";label.textContent=shownTitle;button.append(symbol,label);
   if(reveal){const details=document.createElement("span");details.className="map-node-difficulty map-node-reveal";details.textContent=`${difficultyLabel??"?"} · ${formatDuration(reveal.durationSeconds)}`;button.append(details);}else if(locked){const hidden=document.createElement("span");hidden.className="map-node-difficulty";hidden.textContent="Verrouillée";button.append(hidden);}
   button.addEventListener("mouseenter",()=>this.previewNode(node,{accessible,current,completed,locked,reveal,temporary:true}));button.addEventListener("focus",()=>this.previewNode(node,{accessible,current,completed,locked,reveal,temporary:true}));
-  if(accessible)button.addEventListener("click",()=>this.selectNode(node,{accessible,current,completed,locked,reveal}));
+  if(accessible)button.addEventListener("click",()=>void this.selectAndConfirmNode(node,{accessible,current,completed,locked,reveal}));
   return button;
+ }
+ async selectAndConfirmNode(node,state){
+  if(this.navigationLocked)return;
+  this.selectedNodeId=node.id;
+  for(const candidate of this.mapNodeList.querySelectorAll(".map-node-button"))candidate.classList.toggle("is-selected",candidate.dataset.nodeId===node.id);
+  this.previewNode(node,{...state,temporary:false});
+  await this.confirmSelection(node.id);
  }
  selectNode(node,state){if(this.navigationLocked)return;this.selectedNodeId=node.id;for(const candidate of this.mapNodeList.querySelectorAll(".map-node-button"))candidate.classList.toggle("is-selected",candidate.dataset.nodeId===node.id);this.previewNode(node,{...state,temporary:false});}
  previewNode(node,{accessible,current,completed,locked,reveal,temporary=false}){
@@ -62,7 +69,7 @@ export class MapView{
   this.renderPreviewAction(sidebar,node,accessible);
  }
  renderDefaultPreview(currentNode){const sidebar=document.querySelector("#map-screen .detail-sidebar");if(!(sidebar instanceof HTMLElement))return;this.removePreviewAction(sidebar);const title=sidebar.querySelector("h2");const copy=sidebar.querySelector(".detail-copy");const symbol=sidebar.querySelector(".detail-symbol");if(symbol)symbol.textContent=SYMBOLS[currentNode.type]??"•";if(title)title.textContent="Choisis une destination";if(copy)copy.textContent="Survole une salle pour l’examiner, puis sélectionne une destination accessible.";}
- renderPreviewAction(sidebar,node,accessible){this.removePreviewAction(sidebar);if(!accessible)return;const button=document.createElement("button");button.type="button";button.className="primary-button map-confirm-button";button.textContent="Entrer dans cette salle";button.dataset.nodeId=node.id;button.addEventListener("click",()=>void this.confirmSelection(node.id));const divider=sidebar.querySelector(".detail-divider");sidebar.insertBefore(button,divider);}
+ renderPreviewAction(sidebar,node,accessible){this.removePreviewAction(sidebar);if(!accessible)return;const button=document.createElement("button");button.type="button";button.className="primary-button map-confirm-button";button.textContent="Entrer dans cette salle";button.dataset.nodeId=node.id;button.addEventListener("click",()=>void this.confirmSelection(node.id));const divider=sidebar.querySelector(".detail-divider");if(divider)sidebar.insertBefore(button,divider);else sidebar.append(button);}
  removePreviewAction(sidebar){sidebar.querySelector(".map-confirm-button")?.remove();}
  async confirmSelection(nodeId){if(this.navigationLocked||this.selectedNodeId!==nodeId)return;this.navigationLocked=true;for(const candidate of this.mapNodeList.querySelectorAll(".map-node-button.is-accessible"))candidate.disabled=true;const confirm=document.querySelector(".map-confirm-button");if(confirm instanceof HTMLButtonElement)confirm.disabled=true;try{await this.animateTravel(nodeId);await this.onNodeSelected(nodeId);}catch(error){this.navigationLocked=false;for(const candidate of this.mapNodeList.querySelectorAll(".map-node-button.is-accessible"))candidate.disabled=false;if(confirm instanceof HTMLButtonElement)confirm.disabled=false;throw error;}}
  async animateTravel(targetNodeId){const graph=this.mapNodeList.querySelector(".map-graph");const marker=graph?.querySelector(".map-player-marker");const target=graph?.querySelector(`[data-node-id="${CSS.escape(targetNodeId)}"]`);const line=graph?.querySelector(`.map-connection.is-accessible[data-target-id="${CSS.escape(targetNodeId)}"]`);if(!(marker instanceof HTMLElement)||!(target instanceof HTMLElement))return;if(line instanceof SVGElement)line.classList.add("is-travelling");target.classList.add("is-travel-target");marker.classList.add("is-moving");marker.style.left=target.style.left;marker.style.top=target.style.top;await wait(window.matchMedia("(prefers-reduced-motion: reduce)").matches?80:650);}
