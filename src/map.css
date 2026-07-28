@@ -144,9 +144,7 @@
 }
 
 .map-node-normal .map-node-symbol { color: #efeaff; }
-.map-node-event { border-radius: 28%; transform: translate(-50%, -50%) rotate(45deg); }
-.map-node-event .map-node-symbol, .map-node-event .map-node-label, .map-node-event .map-node-difficulty { transform: rotate(-45deg); }
-.map-node-event .map-node-label, .map-node-event .map-node-difficulty { transform: translateX(-50%) rotate(-45deg); transform-origin: top center; }
+.map-node-event { border-radius: 8px; clip-path: polygon(50% 0, 100% 50%, 50% 100%, 0 50%); }
 .map-node-event .map-node-symbol { color: #8fdcff; }
 .map-node-elite { border-radius: 18%; }
 .map-node-elite .map-node-symbol { color: #ffad73; }
