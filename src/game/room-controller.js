@@ -1,5 +1,4 @@
 "use strict";
-
 import { GAME_STATUS } from "./game-state.js";
 import { getAvailableItems,getItemById,ITEM_RARITIES } from "../data/items.js";
 import { registerRoomController } from "./runtime-access.js";
@@ -18,8 +17,17 @@ export class RoomController{
  getShopState(){const nodeId=this.currentNode.id;if(!this.shopStates.has(nodeId)){this.shopStates.set(nodeId,{stock:this.createStock(),rerollCount:0,purchaseCount:0,loyaltyDiscount:0,eventPriceMultiplier:this.gameState.consumeNextShopPriceMultiplier?.()??1,couponUsed:false,freeBlessingReroll:this.gameState.activeBlessingId==="generous-hand"});}return this.shopStates.get(nodeId);}
  getRerollCost(rerollCount,state=this.getShopState()){if(state.freeBlessingReroll&&rerollCount===0)return 0;return[25,40,60][rerollCount]??60+(rerollCount-2)*20;}
  getShopDiscount(state){const regular=Math.max(0,Number(this.getOwnedValues("shop-regular")?.discount)||0);const faithful=this.getOwnedValues("faithful-customer");const faithfulDiscount=state.purchaseCount<(Number(faithful?.purchases)||0)?Math.max(0,Number(faithful?.discount)||0):0;const blessing=this.gameState.activeBlessingId==="merchant-favor"?0.1:0;return Math.min(.35,regular+faithfulDiscount+state.loyaltyDiscount+blessing);}
- getItemPrice(item,state=this.getShopState()){const base=item.price*this.getInflationMultiplier()*(state.eventPriceMultiplier??1);return roundPrice(base*(1-this.getShopDiscount(state)));}
- renderShop(){const state=this.getShopState();const items=state.stock.map((itemId)=>getItemById(itemId)).filter(Boolean).map((entry)=>{const price=this.getItemPrice(entry,state);return{item:entry,price,affordable:this.gameState.gold>=price};});this.shopView.render({gold:this.gameState.gold,items,rerollCost:this.getRerollCost(state.rerollCount,state)});}
+ getPriceBreakdown(item,state=this.getShopState()){
+  const basePrice=Number(item.price)||0;
+  const inflationMultiplier=this.getInflationMultiplier();
+  const eventMultiplier=Number(state.eventPriceMultiplier)||1;
+  const discount=this.getShopDiscount(state);
+  const inflatedPrice=roundPrice(basePrice*inflationMultiplier*eventMultiplier);
+  const finalPrice=roundPrice(basePrice*inflationMultiplier*eventMultiplier*(1-discount));
+  return{basePrice,inflationMultiplier,eventMultiplier,discount,inflatedPrice,finalPrice};
+ }
+ getItemPrice(item,state=this.getShopState()){return this.getPriceBreakdown(item,state).finalPrice;}
+ renderShop(){const state=this.getShopState();const stockCapacity=Math.max(this.getStockSize(),state.stock.length+state.purchaseCount);const items=state.stock.map((itemId)=>getItemById(itemId)).filter(Boolean).map((entry)=>{const breakdown=this.getPriceBreakdown(entry,state);return{item:entry,price:breakdown.finalPrice,priceBreakdown:breakdown,affordable:this.gameState.gold>=breakdown.finalPrice};});this.shopView.render({gold:this.gameState.gold,items,rerollCost:this.getRerollCost(state.rerollCount,state),stockCapacity,purchaseCount:state.purchaseCount});}
  buyItem(itemId){const state=this.getShopState();const item=getItemById(itemId);if(!item||!state.stock.includes(itemId))return false;const price=this.getItemPrice(item,state);if(!this.gameState.spendGold(price))return false;if(!this.gameState.addItem(item.id)){this.gameState.addGold(price,{ignoreBlessing:true});return false;}this.itemController.ensureRuntimeState(item.id);state.stock=state.stock.filter((entry)=>entry!==item.id);state.purchaseCount+=1;const loyalty=this.getOwnedValues("loyalty-program");if(loyalty)state.loyaltyDiscount=Math.min(Number(loyalty.maxDiscount)||0,state.loyaltyDiscount+(Number(loyalty.discountPerPurchase)||0));this.renderShop();return true;}
  useDubiousCoupon(){const state=this.getShopState();if(!this.gameState.hasItem("dubious-coupon")||state.couponUsed)return[];const choices=shuffle(state.stock).slice(0,this.gameState.isItemUpgraded("dubious-coupon")?2:1);state.couponUsed=true;return choices;}
  redeemDubiousCoupon(itemId){const state=this.getShopState();if(!state.couponUsed||!state.stock.includes(itemId)||!this.gameState.hasItem("dubious-coupon"))return false;if(!this.gameState.addItem(itemId))return false;this.itemController.ensureRuntimeState(itemId);this.gameState.removeItem("dubious-coupon");state.stock=state.stock.filter((id)=>id!==itemId);this.renderShop();return true;}
