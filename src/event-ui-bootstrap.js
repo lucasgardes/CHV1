@@ -26,7 +26,7 @@ function inferChoiceIcon(label) {
   const normalized = String(label || "").toLocaleLowerCase("fr-FR");
   if (normalized.includes("porte")) return "▯";
   if (normalized.includes("coffre") || normalized.includes("casier")) return "▣";
-  if (normalized.includes("or") || normalized.includes("payer") || normalized.includes("pièce")) return "●";
+  if (/\bor\b/u.test(normalized) || normalized.includes("payer") || normalized.includes("pièce")) return "●";
   if (normalized.includes("temps") || normalized.includes("pause") || normalized.includes("chronomètre")) return "◷";
   if (normalized.includes("objet") || normalized.includes("équipement") || normalized.includes("matériel")) return "◇";
   if (normalized.includes("attendre") || normalized.includes("rester")) return "…";
@@ -36,6 +36,7 @@ function inferChoiceIcon(label) {
   if (normalized.includes("protéger")) return "⬡";
   if (normalized.includes("sanction") || normalized.includes("épreuve")) return "△";
   if (normalized.includes("utiliser")) return "◆";
+  if (normalized.includes("continuer")) return "→";
   return "?";
 }
 
@@ -55,6 +56,10 @@ function decorateButton(button) {
   text.textContent = label;
 
   button.replaceChildren(icon, text);
+}
+
+function setTextIfChanged(element, value) {
+  if (element instanceof HTMLElement && element.textContent !== value) element.textContent = value;
 }
 
 function refreshEventUi() {
@@ -77,14 +82,14 @@ function refreshEventUi() {
 
   const eventTitle = isResolution ? screen.dataset.lastEventTitle : title.textContent?.trim();
   if (!isResolution && eventTitle) screen.dataset.lastEventTitle = eventTitle;
-  const [theme = "trial", symbol = isResolution ? "✓" : "?"] = EVENT_THEMES.get(eventTitle) || [];
+  const [theme = "trial", symbol = "?"] = EVENT_THEMES.get(eventTitle) || [];
   screen.classList.add(`event-theme-${theme}`);
 
   const emblem = card?.querySelector(".event-scene-symbol");
-  if (emblem instanceof HTMLElement) emblem.textContent = isResolution ? "✓" : symbol;
+  setTextIfChanged(emblem, isResolution ? "✓" : symbol);
 
   const kicker = card?.querySelector(".screen-kicker");
-  if (kicker instanceof HTMLElement) kicker.textContent = isResolution ? "Conséquences appliquées" : "Protocole imprévu";
+  setTextIfChanged(kicker, isResolution ? "Conséquences appliquées" : "Protocole imprévu");
 
   for (const button of choices.querySelectorAll("button")) decorateButton(button);
 }
