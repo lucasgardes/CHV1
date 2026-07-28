@@ -47,6 +47,15 @@ export class RunController {
     this.renderMap();
     return nodeId;
   }
+  skipCurrentEvent() {
+    if (this.gameState.status !== GAME_STATUS.EVENT) throw new Error("Aucun événement à ignorer.");
+    const nodeId = this.gameState.currentNodeId;
+    this.gameState.completeCurrentNode();
+    this.gameState.setCurrentEncounter(null);
+    this.gameState.setStatus(GAME_STATUS.MAP);
+    this.renderMap();
+    return nodeId;
+  }
   startNewRun() {
     const startNodeId = this.mapController.getMap().startNodeId;
     this.gameState.startRun(startNodeId); this.itemController.resetForRun(); this.renderMap();
@@ -74,8 +83,14 @@ export class RunController {
 
   async leaveCurrentRoom(itemId = "exit-ticket") {
     if (![GAME_STATUS.ENCOUNTER, GAME_STATUS.EVENT].includes(this.gameState.status)) throw new Error("Aucune salle compatible à quitter.");
-    if (this.gameState.status === GAME_STATUS.ENCOUNTER) await this.stopCurrentEncounter();
+    const leavingEvent = this.gameState.status === GAME_STATUS.EVENT;
+    if (!leavingEvent) await this.stopCurrentEncounter();
     this.consumeConsumable(itemId);
+    if (leavingEvent) {
+      const skippedNodeId = this.skipCurrentEvent();
+      this.onStatusChange("Ticket de sortie utilisé : événement ignoré.");
+      return { itemId, lostGold:0, skippedNodeId };
+    }
     const returnNodeId = this.returnToPreviousNode();
     this.onStatusChange("Ticket de sortie utilisé.");
     return { itemId, lostGold:0, returnNodeId };
@@ -109,7 +124,9 @@ export class RunController {
     if (this.gameState.status !== GAME_STATUS.EVENT) throw new Error("Aucun événement à fuir.");
     if (!this.itemController.isAvailable(itemId)) throw new Error("Le Jeton de fuite n’est pas disponible.");
     this.itemController.activate(itemId); this.itemController.consumeCharge(itemId); this.itemController.finishActivation(itemId);
-    const returnNodeId = this.returnToPreviousNode(); this.onStatusChange("Événement quitté grâce au Jeton de fuite."); return { itemId, returnNodeId };
+    const skippedNodeId = this.skipCurrentEvent();
+    this.onStatusChange("Événement ignoré grâce au Jeton de fuite.");
+    return { itemId, skippedNodeId };
   }
 
   consumeConsumable(itemId) {
