@@ -1,5 +1,6 @@
 "use strict";
 
+import { getItemById } from "../data/items.js";
 import { getGameRuntime } from "../game/runtime-access.js";
 import { EliteRewardService } from "../game/elite-reward-service.js";
 import { createItemVisual } from "./item-visual.js";
@@ -109,7 +110,7 @@ export class RewardView {
       const runtime = getGameRuntime();
       const inventory = runtime.gameState?.inventory ?? [];
       const ownedSameType = inventory
-        .map((itemId) => this.service?.getItemById?.(itemId) ?? null)
+        .map((itemId) => getItemById(itemId))
         .filter((ownedItem) => ownedItem?.type === type).length;
 
       button.classList.add("elite-reward-card--item", `elite-reward-card--${rarity}`);
