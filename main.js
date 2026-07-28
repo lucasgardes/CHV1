@@ -55,8 +55,30 @@ async function catalogFingerprint(root, metadataFiles) { return `${root}|${(awai
 async function validateFunscriptFile(filePath) { return validateFunscriptData(await readJson(filePath, null)); }
 function normalizeTags(values) { return [...new Set((Array.isArray(values) ? values : []).map((value) => normalizeId(value)).filter(Boolean))]; }
 
+function inferMediaPathMetadata(root, metadataPath, kind) {
+  const relativeParts = path.relative(root, metadataPath).split(path.sep).filter(Boolean);
+  const rootFolder = kind === "image" ? "images" : "videos";
+  const rootIndex = relativeParts.findIndex((part) => part.toLowerCase() === rootFolder);
+  if (rootIndex < 0) return { type:null, theme:null };
+  const validTypes = kind === "image" ? IMAGE_TYPES : VIDEO_TYPES;
+  const typeCandidate = normalizeId(relativeParts[rootIndex + 1]);
+  const themeCandidate = normalizeId(relativeParts[rootIndex + 2]);
+  return {
+    type: validTypes.has(typeCandidate) ? typeCandidate : null,
+    theme: themeCandidate || null
+  };
+}
+
 async function scanVideoMetadata(root, metadataPath, usedIds) {
-  const folder = path.dirname(metadataPath); const metadata = await readJson(metadataPath, null); const errors = validateMetadataShape(metadata, "video");
+  const folder = path.dirname(metadataPath);
+  const rawMetadata = await readJson(metadataPath, null);
+  const inferred = inferMediaPathMetadata(root, metadataPath, "video");
+  const metadata = rawMetadata ? {
+    ...rawMetadata,
+    type: VIDEO_TYPES.has(rawMetadata.type) ? rawMetadata.type : (inferred.type || "normal"),
+    themes: Array.isArray(rawMetadata.themes) && rawMetadata.themes.length ? rawMetadata.themes : (inferred.theme ? [inferred.theme] : [])
+  } : rawMetadata;
+  const errors = validateMetadataShape(metadata, "video");
   const id = String(metadata?.id ?? "").trim(); if (id && usedIds.has(id)) errors.push("duplicate-id");
   const videoAbsolute = path.resolve(folder, String(metadata?.videoFile ?? ""));
   if (!isInside(root, videoAbsolute)) errors.push("video-outside-library");
@@ -88,7 +110,15 @@ async function scanVideoMetadata(root, metadataPath, usedIds) {
 }
 
 async function scanImageMetadata(root, metadataPath, usedIds) {
-  const folder = path.dirname(metadataPath); const metadata = await readJson(metadataPath, null); const errors = validateMetadataShape(metadata, "image");
+  const folder = path.dirname(metadataPath);
+  const rawMetadata = await readJson(metadataPath, null);
+  const inferred = inferMediaPathMetadata(root, metadataPath, "image");
+  const metadata = rawMetadata ? {
+    ...rawMetadata,
+    type: IMAGE_TYPES.has(rawMetadata.type) ? rawMetadata.type : (inferred.type || "special"),
+    themes: Array.isArray(rawMetadata.themes) && rawMetadata.themes.length ? rawMetadata.themes : (inferred.theme ? [inferred.theme] : [])
+  } : rawMetadata;
+  const errors = validateMetadataShape(metadata, "image");
   const id = String(metadata?.id ?? "").trim(); if (id && usedIds.has(id)) errors.push("duplicate-id");
   const imageAbsolute = path.resolve(folder, String(metadata?.imageFile ?? "")); const thumbnailAbsolute = metadata?.thumbnailFile ? path.resolve(folder, metadata.thumbnailFile) : imageAbsolute;
   if (!isInside(root, imageAbsolute)) errors.push("image-outside-library"); if (!isInside(root, thumbnailAbsolute)) errors.push("thumbnail-outside-library");
