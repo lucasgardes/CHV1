@@ -1,18 +1,18 @@
 "use strict";
 
-const DEFAULT_EVENT_ILLUSTRATION = "../assets/illustrations/events/event-placeholder.svg";
+const DEFAULT_EVENT_ILLUSTRATION = "../assets/illustrations/events/obedience-chest.svg";
 
 const EVENT_THEMES = new Map([
-  ["Le coffre d’obéissance", ["discovery", "▣", DEFAULT_EVENT_ILLUSTRATION]],
-  ["Les trois casiers", ["discovery", "▥", DEFAULT_EVENT_ILLUSTRATION]],
-  ["Le matériel confisqué", ["discovery", "◇", DEFAULT_EVENT_ILLUSTRATION]],
-  ["Les deux portes", ["choice", "⌁", DEFAULT_EVENT_ILLUSTRATION]],
-  ["Le sacrifice calculé", ["choice", "△", DEFAULT_EVENT_ILLUSTRATION]],
-  ["Le dilemme du repos", ["choice", "◷", DEFAULT_EVENT_ILLUSTRATION]],
-  ["La porte condamnée", ["choice", "▤", DEFAULT_EVENT_ILLUSTRATION]],
-  ["Le faux blessé", ["prisoner", "◎", DEFAULT_EVENT_ILLUSTRATION]],
-  ["La panne d’éclairage", ["incident", "ϟ", DEFAULT_EVENT_ILLUSTRATION]],
-  ["Le verrouillage total", ["incident", "⛓", DEFAULT_EVENT_ILLUSTRATION]]
+  ["Le coffre d’obéissance", ["discovery", "▣", "../assets/illustrations/events/obedience-chest.svg"]],
+  ["Les trois casiers", ["discovery", "▥", "../assets/illustrations/events/three-lockers.svg"]],
+  ["Le matériel confisqué", ["discovery", "◇", "../assets/illustrations/events/confiscated-equipment.svg"]],
+  ["Les deux portes", ["choice", "⌁", "../assets/illustrations/events/two-doors.svg"]],
+  ["Le sacrifice calculé", ["choice", "△", "../assets/illustrations/events/calculated-sacrifice.svg"]],
+  ["Le dilemme du repos", ["choice", "◷", "../assets/illustrations/events/rest-dilemma.svg"]],
+  ["La porte condamnée", ["choice", "▤", "../assets/illustrations/events/condemned-door.svg"]],
+  ["Le faux blessé", ["prisoner", "◎", "../assets/illustrations/events/wounded-prisoner.svg"]],
+  ["La panne d’éclairage", ["incident", "ϟ", "../assets/illustrations/events/lighting-failure.svg"]],
+  ["Le verrouillage total", ["incident", "⛓", "../assets/illustrations/events/total-lockdown.svg"]]
 ]);
 
 function ensureStylesheet() {
