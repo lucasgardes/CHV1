@@ -1,106 +1,42 @@
-.legacy-inventory-section {
-  display: none;
-}
+.legacy-inventory-section{display:none}
+.inventory-dock{min-height:132px;align-items:stretch;overflow:visible}
+.inventory-group{display:flex;min-height:0;flex-direction:column;overflow:visible}
+.inventory-item-list{min-height:72px;margin-top:10px;display:flex;align-items:center;align-content:flex-start;flex-wrap:wrap;gap:9px;overflow:visible}
+.inventory-icon-entry{position:relative;flex:0 0 auto;outline:none}
+.inventory-icon-entry>.item-visual{width:50px;height:50px;cursor:help;transition:transform 140ms ease,border-color 140ms ease,box-shadow 140ms ease}
+.inventory-icon-entry:hover>.item-visual,.inventory-icon-entry:focus>.item-visual{border-color:#74839a;transform:translateY(-3px);box-shadow:0 10px 24px rgba(0,0,0,.38),0 0 18px rgba(74,168,255,.13)}
+.inventory-icon-tooltip{position:absolute;z-index:40;left:50%;bottom:calc(100% + 12px);width:260px;padding:13px 14px;border:1px solid #465365;border-radius:9px;background:rgba(9,13,19,.98);box-shadow:0 18px 45px rgba(0,0,0,.58);text-align:left;pointer-events:none;opacity:0;transform:translate(-50%,8px);transition:opacity 130ms ease,transform 130ms ease}
+.inventory-icon-tooltip::after{content:"";position:absolute;left:50%;top:100%;width:10px;height:10px;border-right:1px solid #465365;border-bottom:1px solid #465365;background:#090d13;transform:translate(-50%,-5px) rotate(45deg)}
+.inventory-icon-entry:hover .inventory-icon-tooltip,.inventory-icon-entry:focus .inventory-icon-tooltip{opacity:1;transform:translate(-50%,0)}
+.inventory-icon-tooltip__type{display:block;margin-bottom:5px;color:#7e8ca0;font-size:9px;font-weight:800;letter-spacing:.12em;text-transform:uppercase}
+.inventory-icon-tooltip strong{display:block;color:#f1f4f8;font-size:13px}
+.inventory-icon-tooltip p{margin:7px 0 0;color:#a9b1bd;font-size:11px;line-height:1.5}
+.inventory-group:first-child .inventory-icon-entry:first-of-type .inventory-icon-tooltip{left:0;transform:translate(0,8px)}
+.inventory-group:first-child .inventory-icon-entry:first-of-type:hover .inventory-icon-tooltip,.inventory-group:first-child .inventory-icon-entry:first-of-type:focus .inventory-icon-tooltip{transform:translate(0,0)}
+.inventory-group:first-child .inventory-icon-entry:first-of-type .inventory-icon-tooltip::after{left:25px}
+.inventory-group-empty{min-height:58px;margin:0;display:grid;place-items:center;color:#687383;font-size:11px}
 
-.inventory-dock {
-  min-height: 190px;
-  align-items: stretch;
-}
+.inventory-library-screen{min-height:calc(100vh - 64px);padding:24px;background:radial-gradient(circle at 50% -10%,rgba(77,102,143,.16),transparent 34%),#080b10}
+.inventory-library-panel{width:min(1280px,100%);min-height:calc(100vh - 112px);margin:0 auto;padding:28px}
+.inventory-library-header{display:flex;align-items:flex-end;justify-content:space-between;gap:20px;padding-bottom:22px;border-bottom:1px solid #29313d}
+.inventory-library-header h1{margin:0;font-size:30px}
+.inventory-library-summary{margin:8px 0 0;color:#8e98a7;font-size:13px}
+.inventory-library-groups{display:grid;gap:24px;margin-top:24px}
+.inventory-library-group{padding:18px;border:1px solid #29313d;border-radius:12px;background:rgba(10,14,20,.72)}
+.inventory-library-group>header{display:flex;align-items:center;justify-content:space-between;gap:16px;margin-bottom:15px}
+.inventory-library-group h2{margin:0;font-size:15px;text-transform:uppercase;letter-spacing:.08em}
+.inventory-library-group>header span{min-width:28px;padding:4px 8px;border:1px solid #394555;border-radius:999px;color:#aeb7c4;text-align:center;font-size:11px}
+.inventory-library-group--consumables h2{color:#72d69b}.inventory-library-group--rechargeables h2{color:#69b9ff}.inventory-library-group--passives h2{color:#bd8cff}
+.inventory-library-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:12px}
+.inventory-library-card{display:grid;grid-template-columns:auto minmax(0,1fr);align-items:start;gap:14px;min-height:142px;padding:15px;border:1px solid #303947;border-radius:11px;background:linear-gradient(145deg,rgba(18,24,32,.96),rgba(10,14,20,.97))}
+.inventory-library-card:hover{border-color:#4b596d;background:linear-gradient(145deg,rgba(23,31,42,.98),rgba(12,17,24,.98))}
+.inventory-library-card>.item-visual{width:58px;height:58px}
+.inventory-library-card__copy{min-width:0}
+.inventory-library-card__type{margin:0 0 5px;color:#8290a2;font-size:9px;font-weight:800;letter-spacing:.12em;text-transform:uppercase}
+.inventory-library-card h3{margin:0;color:#f3f5f8;font-size:15px}
+.inventory-library-card__description{margin:8px 0 0;color:#aab2bd;font-size:12px;line-height:1.5}
+.inventory-library-card__upgrade{margin:10px 0 0;padding-top:9px;border-top:1px solid rgba(243,180,63,.18);color:#e6c67a;font-size:11px;line-height:1.45}
+.inventory-library-empty{grid-column:1/-1;margin:0;padding:28px;border:1px dashed #303947;border-radius:9px;color:#697485;text-align:center;font-size:12px}
 
-.inventory-group {
-  display: flex;
-  min-height: 0;
-  flex-direction: column;
-}
-
-.inventory-item-list {
-  min-height: 105px;
-  max-height: 148px;
-  margin-top: 12px;
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  overflow-y: auto;
-  padding-right: 4px;
-}
-
-.inventory-item-card {
-  padding: 10px 11px;
-  border: 1px solid #303947;
-  border-radius: 7px;
-  background: rgba(13, 18, 24, 0.92);
-}
-
-.inventory-item-card:hover {
-  border-color: #4b5869;
-  background: rgba(18, 24, 32, 0.96);
-}
-
-.inventory-item-heading {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 10px;
-}
-
-.inventory-item-heading strong {
-  min-width: 0;
-  overflow: hidden;
-  color: #eef0f5;
-  font-size: 13px;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.inventory-item-card p {
-  margin: 6px 0 0;
-  color: #8e98a7;
-  font-size: 11px;
-  line-height: 1.4;
-}
-
-.inventory-upgraded-badge {
-  flex: 0 0 auto;
-  padding: 2px 6px;
-  border: 1px solid rgba(243, 180, 63, 0.45);
-  border-radius: 999px;
-  color: #f3b43f;
-  background: rgba(243, 180, 63, 0.1);
-  font-size: 9px;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-}
-
-.inventory-group-empty {
-  min-height: 105px;
-  margin: 0;
-  display: grid;
-  place-items: center;
-  border: 1px dashed #303947;
-  border-radius: 7px;
-  color: #687383;
-  font-size: 12px;
-}
-
-.inventory-item-list::-webkit-scrollbar {
-  width: 6px;
-}
-
-.inventory-item-list::-webkit-scrollbar-thumb {
-  border-radius: 99px;
-  background: #3a4553;
-}
-
-@media (max-height: 820px) {
-  .map-screen {
-    grid-template-rows: minmax(480px, 1fr) 160px;
-  }
-
-  .inventory-dock {
-    min-height: 160px;
-  }
-
-  .inventory-item-list {
-    max-height: 116px;
-  }
-}
+@media(max-width:1200px){.inventory-library-grid{grid-template-columns:repeat(auto-fill,minmax(260px,1fr))}.inventory-icon-tooltip{width:230px}}
+@media(max-height:820px){.map-screen{grid-template-rows:minmax(480px,1fr) 125px}.inventory-dock{min-height:125px}.inventory-item-list{min-height:62px}.inventory-icon-entry>.item-visual{width:44px;height:44px}}
