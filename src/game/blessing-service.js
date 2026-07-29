@@ -16,7 +16,7 @@ export class BlessingService{
  getShopDiscount(){return this.has("merchant-favor")?0.1:0;}
  getEncounterDurationAdjustment(type){if(this.has("breath-of-mercy")){if(type==="normal")return-10;if(type==="elite")return-15;}if(this.has("temporal-debt")){if(type==="normal")return-15;if(type==="boss")return 45;}return 0;}
  getEventWeights(defaults){return this.has("favorable-omen")?{...defaults,positive:50,neutral:20,negative:30}:{...defaults};}
- onPositiveEvent(){if(!this.has("rewarded-curiosity")||this.gameState.getRunFlag("rewarded-curiosity-used"))return 0;this.gameState.setRunFlag("rewarded-curiosity-used",true);this.gameState.addGold(30);return 30;}
+ onPositiveEvent(){return 0;}
  onEliteCompleted(itemController){if(!this.has("second-wind"))return[];return itemController?.reduceRechargeCounters?.(1)??[];}
  onCampfireOpened(itemController){if(!this.has("rest-grace"))return false;itemController?.rechargeAll();return true;}
 }
