@@ -5,7 +5,6 @@ import { GAME_STATUS } from "./game-state.js";
 const PROTECTION_ORDER = Object.freeze([
   { id:"delayed-protection", armed:true, consumable:false },
   { id:"second-chance", consumable:true },
-  { id:"mini-checkpoint", consumable:true },
   { id:"last-stand", consumable:false }
 ]);
 
