@@ -1,6 +1,6 @@
 "use strict";
 
-import { registerMapView } from "../game/runtime-access.js";
+import { getGameRuntime, registerMapView } from "../game/runtime-access.js";
 
 const MAP_WIDTH = 720;
 const LANE_X = [140, 360, 580];
@@ -14,6 +14,21 @@ function ensureMapStylesheet(){if(document.querySelector('link[data-map-styles="
 function formatDuration(seconds){const value=Math.max(0,Number(seconds)||0);if(!value)return"Durée inconnue";const minutes=Math.floor(value/60);const remaining=Math.round(value%60);return`${String(minutes).padStart(2,"0")}:${String(remaining).padStart(2,"0")}`;}
 function formatThemes(reveal){const themes=Array.isArray(reveal?.themes)?reveal.themes.filter(Boolean):[];return themes.length?themes.join(", "):"Thème inconnu";}
 function wait(milliseconds){return new Promise((resolve)=>window.setTimeout(resolve,milliseconds));}
+function applyOtherPathMemory(gameState,accessibleNodes){
+ if(gameState.activeBlessingId!=="other-path-memory")return;
+ const normalNodes=accessibleNodes.filter((node)=>node.type==="normal"&&node.encounterId);
+ if(normalNodes.length<2)return;
+ const encounterController=getGameRuntime().encounterController;
+ if(typeof encounterController?.previewEncounterForNode!=="function")return;
+ const reveals=[];
+ for(const node of normalNodes){
+  if(gameState.isMapEncounterRevealed?.(node.id))continue;
+  const encounter=encounterController.previewEncounterForNode(node);
+  if(!encounter)continue;
+  reveals.push({id:node.id,title:node.title,type:node.type,themes:[],difficulty:node.difficulty??encounter.requestedDifficulty??encounter.type??null,durationSeconds:Number(encounter.durationSeconds)||0,showDetails:true,showTheme:false});
+ }
+ if(reveals.length)gameState.revealMapEncounters(reveals);
+}
 
 export class MapView{
  constructor({mapNodeList,goldValue,inventoryValue,getItemById,onNodeSelected}){
@@ -25,6 +40,7 @@ export class MapView{
   ensureMapStylesheet();Object.assign(this,{mapNodeList,goldValue,inventoryValue,getItemById,onNodeSelected});this.navigationLocked=false;this.selectedNodeId=null;this.lastRender=null;registerMapView(this);
  }
  render({gameState,currentNode,accessibleNodes}){
+  applyOtherPathMemory(gameState,accessibleNodes);
   this.navigationLocked=false;this.selectedNodeId=null;this.lastRender={gameState,currentNode,accessibleNodes};this.mapNodeList.replaceChildren();this.renderGold(gameState.gold);this.renderInventory(gameState.inventory);
   const rows=accessibleNodes.mapRows;const nodes=accessibleNodes.mapNodes;
   if(currentNode===null){this.renderError("La case actuelle est introuvable.");return;}
@@ -47,26 +63,20 @@ export class MapView{
  createNode({node,position,currentNode,accessibleNodes,completedNodeIds,gameState}){
   const accessible=accessibleNodes.some((entry)=>entry.id===node.id);const current=node.id===currentNode.id;const completed=completedNodeIds.includes(node.id);const locked=!accessible&&!current&&!completed;const reveal=gameState.getMapEncounterReveal?.(node.id)??null;const button=document.createElement("button");
   button.type="button";button.className=["map-node-button",`map-node-${node.type}`,current?"is-current":"",accessible?"is-accessible":"",completed?"is-completed":"",locked?"is-locked":"",reveal?"is-revealed":""].filter(Boolean).join(" ");button.dataset.nodeId=node.id;button.style.left=`${position.x}px`;button.style.top=`${position.y}px`;button.disabled=!accessible;
-  const shownTitle=node.type==="hidden"&&!reveal?"Salle inconnue":node.title;const difficultyLabel=reveal?.difficulty?(DIFFICULTY_LABELS[reveal.difficulty]??reveal.difficulty):(node.type==="boss"?"Boss":null);const themesText=reveal?formatThemes(reveal):"";const revealText=reveal?`, thème ${themesText}${reveal.showDetails&&difficultyLabel?`, difficulté ${difficultyLabel}`:""}${reveal.showDetails&&reveal.durationSeconds?`, durée ${formatDuration(reveal.durationSeconds)}`:""}`:"";button.setAttribute("aria-label",`${shownTitle}${revealText}${current?", position actuelle":""}`);
+  const shownTitle=node.type==="hidden"&&!reveal?"Salle inconnue":node.title;const difficultyLabel=reveal?.difficulty?(DIFFICULTY_LABELS[reveal.difficulty]??reveal.difficulty):(node.type==="boss"?"Boss":null);const themesText=reveal?.showTheme!==false?formatThemes(reveal):"";const revealText=reveal?`${reveal.showTheme!==false?`, thème ${themesText}`:""}${reveal.showDetails&&difficultyLabel?`, difficulté ${difficultyLabel}`:""}${reveal.showDetails&&reveal.durationSeconds?`, durée ${formatDuration(reveal.durationSeconds)}`:""}`:"";button.setAttribute("aria-label",`${shownTitle}${revealText}${current?", position actuelle":""}`);
   const symbol=document.createElement("span");symbol.className="map-node-symbol";symbol.textContent=SYMBOLS[node.type]??"•";const label=document.createElement("span");label.className="map-node-label";label.textContent=shownTitle;button.append(symbol,label);
-  if(reveal){const details=document.createElement("span");details.className="map-node-difficulty map-node-reveal";details.textContent=reveal.showDetails?`${themesText} · ${difficultyLabel??"?"} · ${formatDuration(reveal.durationSeconds)}`:themesText;button.append(details);}else if(locked){const hidden=document.createElement("span");hidden.className="map-node-difficulty";hidden.textContent="Verrouillée";button.append(hidden);}
+  if(reveal){const details=document.createElement("span");details.className="map-node-difficulty map-node-reveal";const revealedParts=[];if(reveal.showTheme!==false)revealedParts.push(themesText);if(reveal.showDetails)revealedParts.push(difficultyLabel??"?",formatDuration(reveal.durationSeconds));details.textContent=revealedParts.join(" · ");button.append(details);}else if(locked){const hidden=document.createElement("span");hidden.className="map-node-difficulty";hidden.textContent="Verrouillée";button.append(hidden);}
   button.addEventListener("mouseenter",()=>this.previewNode(node,{accessible,current,completed,locked,reveal,temporary:true}));button.addEventListener("focus",()=>this.previewNode(node,{accessible,current,completed,locked,reveal,temporary:true}));
   if(accessible)button.addEventListener("click",()=>void this.selectAndConfirmNode(node,{accessible,current,completed,locked,reveal}));
   return button;
  }
- async selectAndConfirmNode(node,state){
-  if(this.navigationLocked)return;
-  this.selectedNodeId=node.id;
-  for(const candidate of this.mapNodeList.querySelectorAll(".map-node-button"))candidate.classList.toggle("is-selected",candidate.dataset.nodeId===node.id);
-  this.previewNode(node,{...state,temporary:false});
-  await this.confirmSelection(node.id);
- }
+ async selectAndConfirmNode(node,state){if(this.navigationLocked)return;this.selectedNodeId=node.id;for(const candidate of this.mapNodeList.querySelectorAll(".map-node-button"))candidate.classList.toggle("is-selected",candidate.dataset.nodeId===node.id);this.previewNode(node,{...state,temporary:false});await this.confirmSelection(node.id);}
  selectNode(node,state){if(this.navigationLocked)return;this.selectedNodeId=node.id;for(const candidate of this.mapNodeList.querySelectorAll(".map-node-button"))candidate.classList.toggle("is-selected",candidate.dataset.nodeId===node.id);this.previewNode(node,{...state,temporary:false});}
  previewNode(node,{accessible,current,completed,locked,reveal,temporary=false}){
   if(temporary&&this.selectedNodeId)return;
   const sidebar=document.querySelector("#map-screen .detail-sidebar");if(!(sidebar instanceof HTMLElement))return;
   const symbol=sidebar.querySelector(".detail-symbol");const title=sidebar.querySelector("h2");const copy=sidebar.querySelector(".detail-copy");if(symbol)symbol.textContent=SYMBOLS[node.type]??"•";if(title)title.textContent=node.type==="hidden"&&!reveal?"Salle inconnue":node.title;
-  if(copy){copy.replaceChildren();const type=document.createElement("strong");type.textContent=TYPE_LABELS[node.type]??"Salle";copy.append(type);const details=document.createElement("span");details.className="map-preview-details";const lines=[`Rangée ${Number(node.row)+1}`];if(reveal){lines.push(`Thème : ${formatThemes(reveal)}`);if(reveal.showDetails&&reveal.difficulty)lines.push(`Difficulté : ${DIFFICULTY_LABELS[reveal.difficulty]??reveal.difficulty}`);if(reveal.showDetails&&reveal.durationSeconds)lines.push(`Durée : ${formatDuration(reveal.durationSeconds)}`);}if(!reveal&&["normal","elite"].includes(node.type))lines.push("Thème, difficulté et durée inconnus");if(locked)lines.push("Cette route n’est pas accessible depuis ta position actuelle.");else if(completed)lines.push("Salle déjà parcourue.");else if(current)lines.push("Position actuelle.");details.textContent=lines.join("\n");copy.append(details);}
+  if(copy){copy.replaceChildren();const type=document.createElement("strong");type.textContent=TYPE_LABELS[node.type]??"Salle";copy.append(type);const details=document.createElement("span");details.className="map-preview-details";const lines=[`Rangée ${Number(node.row)+1}`];if(reveal){if(reveal.showTheme!==false)lines.push(`Thème : ${formatThemes(reveal)}`);if(reveal.showDetails&&reveal.difficulty)lines.push(`Difficulté : ${DIFFICULTY_LABELS[reveal.difficulty]??reveal.difficulty}`);if(reveal.showDetails&&reveal.durationSeconds)lines.push(`Durée : ${formatDuration(reveal.durationSeconds)}`);}if(!reveal&&["normal","elite"].includes(node.type))lines.push("Thème, difficulté et durée inconnus");if(locked)lines.push("Cette route n’est pas accessible depuis ta position actuelle.");else if(completed)lines.push("Salle déjà parcourue.");else if(current)lines.push("Position actuelle.");details.textContent=lines.join("\n");copy.append(details);}
   this.renderPreviewAction(sidebar,node,accessible);
  }
  renderDefaultPreview(currentNode){const sidebar=document.querySelector("#map-screen .detail-sidebar");if(!(sidebar instanceof HTMLElement))return;this.removePreviewAction(sidebar);const title=sidebar.querySelector("h2");const copy=sidebar.querySelector(".detail-copy");const symbol=sidebar.querySelector(".detail-symbol");if(symbol)symbol.textContent=SYMBOLS[currentNode.type]??"•";if(title)title.textContent="Choisis une destination";if(copy)copy.textContent="Survole une salle pour l’examiner, puis sélectionne une destination accessible.";}
