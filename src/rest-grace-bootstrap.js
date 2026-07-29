@@ -2,23 +2,35 @@
 
 import { getGameRuntime } from "./game/runtime-access.js";
 
+function canRestoreLastStand(gameState) {
+  return gameState?.hasItem?.("last-stand") === true
+    && gameState?.isDefeatProtectionConsumed?.("last-stand") === true;
+}
+
 function applyRestGraceState(runtime) {
   const restButton = document.getElementById("campfire-rest-button");
   if (!(restButton instanceof HTMLButtonElement)) return;
 
   const active = runtime.gameState?.activeBlessingId === "rest-grace";
-  restButton.disabled = active;
-  restButton.setAttribute("aria-disabled", String(active));
-  restButton.title = active
-    ? "Grâce du repos a déjà rechargé les objets rechargeables : cette action est indisponible."
-    : "";
+  const lastStandRestorable = canRestoreLastStand(runtime.gameState);
+  const disabled = active && !lastStandRestorable;
 
-  if (active) {
+  restButton.disabled = disabled;
+  restButton.setAttribute("aria-disabled", String(disabled));
+  restButton.title = disabled
+    ? "Grâce du repos a déjà rechargé les objets rechargeables : cette action est indisponible."
+    : active && lastStandRestorable
+      ? "Se reposer permet encore de restaurer Dernier rempart."
+      : "";
+
+  if (disabled) {
     restButton.dataset.originalLabel ||= restButton.textContent ?? "Se reposer";
     restButton.textContent = "Repos déjà accordé";
     restButton.classList.add("is-rest-grace-disabled");
   } else {
-    restButton.textContent = restButton.dataset.originalLabel || "Se reposer";
+    restButton.textContent = active && lastStandRestorable
+      ? "Restaurer Dernier rempart"
+      : (restButton.dataset.originalLabel || "Se reposer");
     restButton.classList.remove("is-rest-grace-disabled");
   }
 }
