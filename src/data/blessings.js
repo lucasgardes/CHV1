@@ -13,7 +13,6 @@ export const BLESSINGS=Object.freeze([
  blessing({id:"second-wind",name:"Deuxième souffle",rarity:BLESSING_RARITIES.RARE,category:BLESSING_CATEGORIES.ITEMS,description:"Après chaque élite, réduit d’un round la recharge de tous les rechargeables.",effect:{type:"elite-recharge-reduction",rounds:1}}),
  blessing({id:"rest-grace",name:"Grâce du repos",rarity:BLESSING_RARITIES.RARE,category:BLESSING_CATEGORIES.CAMPFIRE,description:"Les feux de camp rechargent automatiquement tous les rechargeables avant le choix.",effect:{type:"campfire-auto-recharge"}}),
  blessing({id:"favorable-omen",name:"Présage favorable",rarity:BLESSING_RARITIES.COMMON,category:BLESSING_CATEGORIES.EVENTS,description:"Les événements sont répartis à 50 % positifs, 20 % neutres et 30 % négatifs.",effect:{type:"event-weights",positive:50,neutral:20,negative:30}}),
- blessing({id:"rewarded-curiosity",name:"Curiosité récompensée",rarity:BLESSING_RARITIES.COMMON,category:BLESSING_CATEGORIES.EVENTS,description:"Le premier événement résolu positivement donne 30 or supplémentaires.",effect:{type:"first-positive-event-gold",gold:30}}),
  blessing({id:"temporal-debt",name:"Dette temporelle",rarity:BLESSING_RARITIES.UNSTABLE,category:BLESSING_CATEGORIES.ENCOUNTERS,description:"Réduit les rencontres normales de 15 s. Pour le boss, charge la variante longue metadata45.json, video45.mp4 et default45.funscript du même dossier.",effect:{type:"normal-shorter-boss-longer",normalSeconds:15,bossSeconds:45}})
 ]);
 export const INITIAL_BLESSING_IDS=Object.freeze(BLESSINGS.map((entry)=>entry.id));
