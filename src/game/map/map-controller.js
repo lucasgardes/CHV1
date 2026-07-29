@@ -1,17 +1,28 @@
 "use strict";
 
+import { getBlessingById } from "../../data/blessings.js";
 import { generateMap } from "./map-generator.js";
 import { registerMapController } from "../runtime-access.js";
+
+function getActiveEventWeights(gameState) {
+  if (gameState?.activeBlessingId !== "favorable-omen") return null;
+  const effect = getBlessingById("favorable-omen")?.effect;
+  return {
+    positive:Math.max(0, Number(effect?.positive) || 0),
+    neutral:Math.max(0, Number(effect?.neutral) || 0),
+    negative:Math.max(0, Number(effect?.negative) || 0)
+  };
+}
 
 export class MapController {
   constructor({ gameState, seed } = {}) {
     if (!gameState) throw new Error("L’état de partie est requis.");
     this.gameState = gameState;
-    this.setMap(generateMap({ seed }));
+    this.setMap(generateMap({ seed, eventWeights:getActiveEventWeights(gameState) }));
     registerMapController(this);
   }
   setMap(map) { this.map = map; this.nodesById = new Map(map.nodes.map((node) => [node.id, node])); }
-  regenerate({ seed } = {}) { this.setMap(generateMap({ seed })); this.gameState.currentNodeId = this.map.startNodeId; this.gameState.completedNodeIds = []; return this.map; }
+  regenerate({ seed } = {}) { this.setMap(generateMap({ seed, eventWeights:getActiveEventWeights(this.gameState) })); this.gameState.currentNodeId = this.map.startNodeId; this.gameState.completedNodeIds = []; return this.map; }
   getMap() { return this.map; }
   getNodes({ includeHidden = false } = {}) { return this.map.nodes.filter((node) => includeHidden || node.hidden !== true); }
   getRows() { return this.map.rows.map((row) => [...row]); }
