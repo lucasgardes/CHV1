@@ -52,6 +52,7 @@ export class GameState{
  removeItem(itemId){const index=this.inventory.indexOf(itemId);if(index<0)return false;this.inventory.splice(index,1);this.upgradedItemIds=this.upgradedItemIds.filter((id)=>id!==itemId);delete this.disabledItems[itemId];return true;}
  isDefeatProtectionConsumed(itemId){return this.consumedDefeatProtectionIds.includes(itemId);}
  consumeDefeatProtection(itemId){if(this.isDefeatProtectionConsumed(itemId))return false;this.consumedDefeatProtectionIds.push(itemId);return true;}
+ restoreDefeatProtection(itemId){const wasConsumed=this.isDefeatProtectionConsumed(itemId);this.consumedDefeatProtectionIds=this.consumedDefeatProtectionIds.filter((id)=>id!==itemId);return wasConsumed;}
  isItemUpgraded(itemId){return this.upgradedItemIds.includes(itemId);}
  upgradeItem(itemId){if(!this.hasItem(itemId)||this.isItemUpgraded(itemId))return false;this.upgradedItemIds.push(itemId);return true;}
 }
