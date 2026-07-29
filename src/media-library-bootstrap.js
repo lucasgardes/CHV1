@@ -19,11 +19,12 @@ function createLocalEncounter(fallback, local, requestedDifficulty) {
     defaultFunscriptDifficulty:requestedDifficulty,
     requestedDifficulty,
     selectedDifficulty:requestedDifficulty,
+    difficulty:requestedDifficulty,
     fallbackUsed:local.fallbackUsed === true,
     durationSeconds:local.durationSeconds || fallback.durationSeconds,
     themes:[...(local.themes ?? [])],
     performers:[...(local.performers ?? [])],
-    playbackContext:local.type === "event" ? "event" : "run"
+    playbackContext:"run"
   };
 }
 
@@ -41,11 +42,7 @@ async function initialize() {
 
   const selectLocalEncounter = (fallback, requestedDifficulty) => {
     if (!fallback) return null;
-    // Dans la bibliothèque locale, metadata.type correspond à la difficulté
-    // du dossier : easy, normal, hard, etc.
     let local = library.select({ type:requestedDifficulty, requireFunscript:true });
-    // Compatibilité avec les anciennes bibliothèques où type décrivait encore
-    // la catégorie de rencontre.
     if (!local) local = library.select({ type:fallback.type, difficulty:requestedDifficulty, requireFunscript:true });
     return createLocalEncounter(fallback, local, requestedDifficulty);
   };
@@ -59,6 +56,18 @@ async function initialize() {
     const selected = selectLocalEncounter(fallback, requestedDifficulty);
     assignedByNodeId.set(node.id, selected);
     return selected;
+  };
+
+  controller.getDirectorAlternative = (currentEncounter) => {
+    const currentDifficulty = currentEncounter?.requestedDifficulty ?? currentEncounter?.selectedDifficulty ?? currentEncounter?.difficulty ?? "normal";
+    const currentMediaId = currentEncounter?.mediaId ?? (String(currentEncounter?.id ?? "").startsWith("local:") ? String(currentEncounter.id).slice(6) : null);
+    const playedIds = runtime.gameState.itemRunState?.playedMediaIds ?? [];
+    const local = library.selectDirectorAlternative({
+      difficulty:currentDifficulty,
+      currentId:currentMediaId,
+      playedIds
+    });
+    return local ? createLocalEncounter(currentEncounter, local, local.selectedDifficulty ?? local.type ?? currentDifficulty) : null;
   };
 
   controller.getEncounterById = (encounterId) => {
