@@ -1,8 +1,10 @@
 "use strict";
 
+export const EVENT_TONES=Object.freeze({POSITIVE:"positive",NEUTRAL:"neutral",NEGATIVE:"negative"});
+
 export const EVENTS = Object.freeze([
   {
-    id:"obedience-chest", category:"discovery", difficulty:"low", title:"Le coffre d’obéissance",
+    id:"obedience-chest", category:"discovery", tone:EVENT_TONES.POSITIVE, difficulty:"low", title:"Le coffre d’obéissance",
     description:"Une salle blanche contient uniquement un coffre métallique. L’écran au-dessus affiche : « Ne pas ouvrir. » La porte de sortie est déjà déverrouillée.",
     choices:[
       { id:"leave-closed", label:"Quitter la salle sans ouvrir le coffre", effect:{ type:"gain-gold", amount:25 } },
@@ -10,7 +12,7 @@ export const EVENTS = Object.freeze([
     ]
   },
   {
-    id:"three-lockers", category:"discovery", difficulty:"medium", title:"Les trois casiers",
+    id:"three-lockers", category:"discovery", tone:EVENT_TONES.POSITIVE, difficulty:"medium", title:"Les trois casiers",
     description:"Trois casiers portent les inscriptions Sécurité, Richesse et Connaissance. Un seul peut être ouvert.",
     choices:[
       { id:"security", label:"Ouvrir Sécurité — réduire d’un round la recharge de tous les rechargeables", effect:{ type:"three-lockers-security", rounds:1 } },
@@ -19,7 +21,7 @@ export const EVENTS = Object.freeze([
     ]
   },
   {
-    id:"confiscated-equipment", category:"discovery", difficulty:"medium", title:"Le matériel confisqué",
+    id:"confiscated-equipment", category:"discovery", tone:EVENT_TONES.POSITIVE, difficulty:"medium", title:"Le matériel confisqué",
     description:"Deux objets confisqués apparaissent derrière une vitre. Le système autorise un échange contre l’un de tes objets, ou leur démontage.",
     choices:[
       {
@@ -45,7 +47,7 @@ export const EVENTS = Object.freeze([
     ]
   },
   {
-    id:"two-doors", category:"immediate-choice", difficulty:"low", title:"Les deux portes",
+    id:"two-doors", category:"immediate-choice", tone:EVENT_TONES.NEUTRAL, difficulty:"low", title:"Les deux portes",
     description:"Deux portes apparaissent : l’une marquée d’une pièce, l’autre d’un chronomètre.",
     choices:[
       { id:"gold-door", label:"Porte de la pièce — gagner 35 pièces d’or", effect:{ type:"gain-gold", amount:35 } },
@@ -53,7 +55,7 @@ export const EVENTS = Object.freeze([
     ]
   },
   {
-    id:"calculated-sacrifice", category:"immediate-choice", difficulty:"medium", title:"Le sacrifice calculé",
+    id:"calculated-sacrifice", category:"immediate-choice", tone:EVENT_TONES.NEGATIVE, difficulty:"medium", title:"Le sacrifice calculé",
     description:"La personne masquée annonce qu’un coût doit être payé pour ouvrir la porte suivante.",
     choices:[
       { id:"pay-gold", label:"Payer 35 pièces d’or", effect:{ type:"lose-gold", amount:35 } },
@@ -62,7 +64,7 @@ export const EVENTS = Object.freeze([
     ]
   },
   {
-    id:"rest-dilemma", category:"immediate-choice", difficulty:"medium", title:"Le dilemme du repos",
+    id:"rest-dilemma", category:"immediate-choice", tone:EVENT_TONES.NEUTRAL, difficulty:"medium", title:"Le dilemme du repos",
     description:"Le protocole peut être ralenti, mais le temps gagné doit être compensé d’une autre manière.",
     choices:[
       { id:"take-break", label:"Prendre une pause de 45 secondes et recharger un objet", effect:{ type:"choose-owned-item", itemType:"rechargeable", selectionTitle:"Choisir l’objet à recharger", prompt:"Sélectionne l’objet rechargeable qui profitera de la pause.", unavailableLabel:"Tu ne possèdes aucun objet rechargeable.", selectedEffect:{ type:"recharge-item", itemId:"$selectedItemId" }, afterEffects:[{ type:"next-reward", goldFlat:-20, source:"rest-dilemma" }] } },
@@ -71,7 +73,7 @@ export const EVENTS = Object.freeze([
     ]
   },
   {
-    id:"condemned-door", category:"immediate-choice", difficulty:"high", rarity:"rare", title:"La porte condamnée",
+    id:"condemned-door", category:"immediate-choice", tone:EVENT_TONES.NEGATIVE, difficulty:"high", rarity:"rare", title:"La porte condamnée",
     description:"La porte suivante est condamnée. Le système propose trois solutions pour poursuivre.",
     choices:[
       { id:"force-passage", label:"Forcer le passage — perdre entre 55 et 70 pièces d’or", effect:{ type:"lose-gold", amountRange:[55,70] } },
@@ -80,7 +82,7 @@ export const EVENTS = Object.freeze([
     ]
   },
   {
-    id:"wounded-prisoner", category:"other-prisoner", difficulty:"medium", title:"Le faux blessé",
+    id:"wounded-prisoner", category:"other-prisoner", tone:EVENT_TONES.NEGATIVE, difficulty:"medium", title:"Le faux blessé",
     description:"Un cobaye est allongé au sol et affirme avoir été abandonné par les scientifiques. Son récit semble plausible, mais quelque chose paraît anormal.",
     choices:[
       {
@@ -104,7 +106,7 @@ export const EVENTS = Object.freeze([
     ]
   },
   {
-    id:"lighting-failure", category:"incident", difficulty:"low", title:"La panne d’éclairage",
+    id:"lighting-failure", category:"incident", tone:EVENT_TONES.NEUTRAL, difficulty:"low", title:"La panne d’éclairage",
     description:"Les lumières s’éteignent. Un message demande d’attendre le redémarrage, mais une porte de maintenance devient visible dans l’obscurité.",
     choices:[
       { id:"wait", label:"Attendre le redémarrage — recevoir 20 pièces d’or", effect:{ type:"gain-gold", amount:20 } },
@@ -112,7 +114,7 @@ export const EVENTS = Object.freeze([
     ]
   },
   {
-    id:"total-lockdown", category:"incident", difficulty:"high", title:"Le verrouillage total",
+    id:"total-lockdown", category:"incident", tone:EVENT_TONES.NEGATIVE, difficulty:"high", title:"Le verrouillage total",
     description:"La salle se ferme entièrement. Le système prétend qu’une défaillance menace les appareils et exige de choisir ce qui doit être protégé.",
     choices:[
       { id:"protect-inventory", label:"Protéger l’inventaire — payer entre 50 et 65 pièces d’or", effect:{ type:"lose-gold", amountRange:[50,65] } },
@@ -136,3 +138,4 @@ export const EVENTS = Object.freeze([
 
 export function getEventById(eventId){return EVENTS.find((event)=>event.id===eventId)??null;}
 export function getEventsByCategory(category){return EVENTS.filter((event)=>event.category===category);}
+export function getEventsByTone(tone){return EVENTS.filter((event)=>event.tone===tone);}
