@@ -20,11 +20,12 @@ function normalizeEntry(entry = {}) {
   };
 }
 
+const DIFFICULTY_ORDER = Object.freeze(["warmup", "easy", "normal", "medium", "hard", "boss"]);
+
 function nearestDifficulty(available, requested) {
   if (!requested || available.includes(requested)) return requested || available[0] || null;
-  const order = ["easy", "normal", "medium", "hard"];
-  const index = order.indexOf(requested);
-  return [...available].sort((left, right) => Math.abs(order.indexOf(left) - index) - Math.abs(order.indexOf(right) - index))[0] ?? available[0] ?? null;
+  const index = DIFFICULTY_ORDER.indexOf(requested);
+  return [...available].sort((left, right) => Math.abs(DIFFICULTY_ORDER.indexOf(left) - index) - Math.abs(DIFFICULTY_ORDER.indexOf(right) - index))[0] ?? available[0] ?? null;
 }
 
 export class LocalMediaLibrary {
@@ -57,6 +58,17 @@ export class LocalMediaLibrary {
     for (const entry of candidates) { cursor -= entry.weight; if (cursor <= 0) return entry; }
     return candidates[candidates.length - 1] ?? null;
   }
+  prepareSelection(selected, requestedDifficulty = null, fallbackUsed = false) {
+    if (!selected) return null;
+    const selectedDifficulty = selected.type || nearestDifficulty(selected.difficulties, requestedDifficulty);
+    return {
+      ...selected,
+      requestedDifficulty: requestedDifficulty ?? selectedDifficulty,
+      selectedDifficulty,
+      fallbackUsed,
+      funscriptPath: selected.funscripts[selectedDifficulty] ?? selected.funscripts.default ?? Object.values(selected.funscripts)[0] ?? null
+    };
+  }
   select(options = {}) {
     let candidates = this.getCandidates(options);
     let fallbackUsed = false;
@@ -71,14 +83,36 @@ export class LocalMediaLibrary {
     if (!selected) return null;
     this.recentIds = [selected.id, ...this.recentIds.filter((id) => id !== selected.id)].slice(0, this.recentLimit);
     if (!this.runIds.includes(selected.id)) this.runIds.push(selected.id);
-    const selectedDifficulty = nearestDifficulty(selected.difficulties, options.difficulty);
-    return {
-      ...selected,
-      requestedDifficulty: options.difficulty ?? null,
-      selectedDifficulty,
-      fallbackUsed: fallbackUsed || selectedDifficulty !== options.difficulty,
-      funscriptPath: selected.funscripts[selectedDifficulty] ?? selected.funscripts.default ?? Object.values(selected.funscripts)[0] ?? null
-    };
+    return this.prepareSelection(selected, options.difficulty, fallbackUsed);
+  }
+  selectDirectorAlternative({ difficulty = "normal", currentId = null, playedIds = [] } = {}) {
+    const played = new Set(playedIds.map(String));
+    const eligible = this.entries.filter((entry) => entry.id !== currentId && Object.keys(entry.funscripts).length > 0);
+    if (!eligible.length) return null;
+    const currentIndex = Math.max(0, DIFFICULTY_ORDER.indexOf(difficulty));
+    const atLevel = (level, alreadyPlayed) => eligible.filter((entry) => entry.type === level && played.has(entry.id) === alreadyPlayed);
+
+    let pool = atLevel(difficulty, false);
+    let selectedDifficulty = difficulty;
+    let fallbackUsed = false;
+
+    if (!pool.length) {
+      for (let index = currentIndex - 1; index >= 0; index -= 1) {
+        pool = atLevel(DIFFICULTY_ORDER[index], false);
+        if (pool.length) { selectedDifficulty = DIFFICULTY_ORDER[index]; fallbackUsed = true; break; }
+      }
+    }
+    if (!pool.length) {
+      for (let index = currentIndex + 1; index < DIFFICULTY_ORDER.length; index += 1) {
+        pool = atLevel(DIFFICULTY_ORDER[index], false);
+        if (pool.length) { selectedDifficulty = DIFFICULTY_ORDER[index]; fallbackUsed = true; break; }
+      }
+    }
+    if (!pool.length) {
+      pool = atLevel(difficulty, true);
+      selectedDifficulty = difficulty;
+    }
+    return this.prepareSelection(this.weightedPick(pool), selectedDifficulty, fallbackUsed);
   }
   resetRunHistory() { this.runIds = []; }
   markUnavailable(entryId) { this.entries = this.entries.filter((entry) => entry.id !== entryId); this.recentIds = this.recentIds.filter((id) => id !== entryId); this.runIds = this.runIds.filter((id) => id !== entryId); }
