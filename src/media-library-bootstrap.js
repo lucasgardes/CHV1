@@ -8,6 +8,7 @@ import "./spyglass-bootstrap.js";
 import "./peaceful-route-bootstrap.js";
 import "./breath-of-mercy-bootstrap.js";
 import "./temporal-debt-bootstrap.js";
+import "./rest-grace-bootstrap.js";
 import { getLocalMediaLibrary, scanLocalMediaLibrary } from "./game/local-media-library.js";
 import { getGameRuntime } from "./game/runtime-access.js";
 
