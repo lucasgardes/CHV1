@@ -34,7 +34,7 @@ function ensureChoiceDialogStyles() {
   document.head.append(link);
 }
 
-function defaultChoice({ title, message, details = "", icon = "◆" }) {
+function defaultChoice({ title, message, details = "", icon = "◆", declineLabel = "Ne pas activer", activateLabel = "Activer" }) {
   if (typeof document === "undefined" || !document.body) {
     return Promise.resolve(typeof globalThis.confirm === "function" ? globalThis.confirm(message) : false);
   }
@@ -62,14 +62,16 @@ function defaultChoice({ title, message, details = "", icon = "◆" }) {
         <p class="item-choice-dialog__details" hidden></p>
       </div>
       <div class="item-choice-dialog__actions">
-        <button class="item-choice-dialog__decline" type="button">Ne pas activer</button>
-        <button class="item-choice-dialog__activate" type="button">Activer</button>
+        <button class="item-choice-dialog__decline" type="button"></button>
+        <button class="item-choice-dialog__activate" type="button"></button>
       </div>
     `;
 
     dialog.querySelector(".item-choice-dialog__icon").textContent = icon;
     dialog.querySelector("h2").textContent = title;
     dialog.querySelector(".item-choice-dialog__message").textContent = message;
+    dialog.querySelector(".item-choice-dialog__decline").textContent = declineLabel;
+    dialog.querySelector(".item-choice-dialog__activate").textContent = activateLabel;
     const detailsElement = dialog.querySelector(".item-choice-dialog__details");
     if (details) {
       detailsElement.textContent = details;
@@ -97,6 +99,22 @@ function defaultChoice({ title, message, details = "", icon = "◆" }) {
   });
 }
 
+function formatDuration(seconds) {
+  const value = Math.max(0, Number(seconds) || 0);
+  if (!value) return "Durée inconnue";
+  const minutes = Math.floor(value / 60);
+  const remaining = Math.round(value % 60);
+  return `${String(minutes).padStart(2, "0")}:${String(remaining).padStart(2, "0")}`;
+}
+
+function difficultyLabel(value) {
+  return ({ warmup:"Échauffement", easy:"Facile", normal:"Normale", medium:"Moyenne", hard:"Difficile", boss:"Boss" })[value] ?? value ?? "Inconnue";
+}
+
+function encounterDifficulty(encounter) {
+  return encounter?.selectedDifficulty ?? encounter?.requestedDifficulty ?? encounter?.difficulty ?? encounter?.defaultFunscriptDifficulty ?? "normal";
+}
+
 function blessingDuration(gameState, type) {
   if (gameState.activeBlessingId === "breath-of-mercy") {
     if (type === "normal") return -10;
@@ -118,6 +136,7 @@ export class EncounterController {
     Object.assign(this, { gameState, itemController, video, getEncounterById, stopVideoSync, setFunscriptPath, loadFunscript, resetActions, resolveFunscript, onEncounterLoaded, onNormalCompleted, onEliteCompleted, onBossCompleted, onPlaybackFallback });
     this.chooseDirectorVideo = chooseDirectorVideo;
     this.chooseDoubleBet = chooseDoubleBet;
+    this.getDirectorAlternative = null;
     this.currentEncounter = null;
     registerEncounterController(this);
   }
@@ -126,22 +145,38 @@ export class EncounterController {
 
   async resolveDirectorChoice(encounter) {
     if (!this.gameState.hasItem("director-eye")) return encounter;
-    const alternatives = VIDEOS.filter((video) => video.type === encounter.type && video.id !== encounter.id);
-    if (!alternatives.length) return encounter;
-    const alternate = alternatives[Math.floor(Math.random() * alternatives.length)];
+    let alternate = typeof this.getDirectorAlternative === "function"
+      ? await this.getDirectorAlternative(encounter)
+      : null;
+    if (!alternate) {
+      const alternatives = VIDEOS.filter((video) => video.type === encounter.type && video.id !== encounter.id);
+      alternate = alternatives[Math.floor(Math.random() * alternatives.length)] ?? null;
+    }
+    if (!alternate) return encounter;
+
     const showDetails = this.gameState.isItemUpgraded("director-eye");
     const details = showDetails
-      ? `Vidéo actuelle : ${encounter.title}\nDifficulté : ${encounter.difficulty ?? "?"}\n\nVidéo alternative : ${alternate.title}\nDifficulté : ${alternate.difficulty ?? "?"}`
-      : `Vidéo alternative proposée : ${alternate.title}`;
+      ? `${encounter.title}\nDurée : ${formatDuration(encounter.durationSeconds)}\nDifficulté : ${difficultyLabel(encounterDifficulty(encounter))}\n\n${alternate.title}\nDurée : ${formatDuration(alternate.durationSeconds)}\nDifficulté : ${difficultyLabel(encounterDifficulty(alternate))}`
+      : `${encounter.title}\n\n${alternate.title}`;
     const useAlternate = typeof this.chooseDirectorVideo === "function"
       ? (await this.chooseDirectorVideo({ current: encounter, alternate, showDetails })) === alternate.id
       : await defaultChoice({
           title: "Œil du réalisateur",
-          message: "Remplacer la vidéo actuelle par la vidéo alternative proposée ?",
+          message: "Choisis la vidéo de cette rencontre.",
           details,
-          icon: "◉"
+          icon: "◉",
+          declineLabel:encounter.title,
+          activateLabel:alternate.title
         });
     return useAlternate ? alternate : encounter;
+  }
+
+  markEncounterAsPlayed(encounter) {
+    const state = this.gameState.itemRunState;
+    if (!state) return;
+    if (!Array.isArray(state.playedMediaIds)) state.playedMediaIds = [];
+    const mediaId = encounter?.mediaId ?? (String(encounter?.id ?? "").startsWith("local:") ? String(encounter.id).slice(6) : encounter?.id);
+    if (mediaId && !state.playedMediaIds.includes(mediaId)) state.playedMediaIds.push(mediaId);
   }
 
   async resolveDoubleBet() {
@@ -188,6 +223,7 @@ export class EncounterController {
     let encounter = this.getEncounterById(encounterId);
     if (encounter === null) throw new Error(`Rencontre introuvable : ${encounterId}`);
     encounter = await this.resolveDirectorChoice(encounter);
+    this.markEncounterAsPlayed(encounter);
     await this.stopVideoSync();
     const eventModifiers = this.gameState.consumeEncounterModifiers?.() ?? [];
     const modifierSummary = aggregateModifiers(eventModifiers);
