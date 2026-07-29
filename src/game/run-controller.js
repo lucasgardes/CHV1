@@ -85,15 +85,19 @@ export class RunController {
     if (![GAME_STATUS.ENCOUNTER, GAME_STATUS.EVENT].includes(this.gameState.status)) throw new Error("Aucune salle compatible à quitter.");
     const leavingEvent = this.gameState.status === GAME_STATUS.EVENT;
     if (!leavingEvent) await this.stopCurrentEncounter();
-    this.consumeConsumable(itemId);
+    const values = this.itemController.getEffectiveValues(itemId) ?? {};
+    const consumption = this.consumeConsumable(itemId, {
+      preserveChance:Number(values.preserveChance) || 0,
+      preserveReason:"grâce à son amélioration"
+    });
     if (leavingEvent) {
       const skippedNodeId = this.skipCurrentEvent();
-      this.onStatusChange("Ticket de sortie utilisé : événement ignoré.");
-      return { itemId, lostGold:0, skippedNodeId };
+      this.onStatusChange(`Ticket de sortie utilisé : événement ignoré.${consumption.preserved ? " Le ticket n’a pas été consommé." : ""}`);
+      return { itemId, lostGold:0, skippedNodeId, preserved:consumption.preserved };
     }
     const returnNodeId = this.returnToPreviousNode();
-    this.onStatusChange("Ticket de sortie utilisé.");
-    return { itemId, lostGold:0, returnNodeId };
+    this.onStatusChange(`Ticket de sortie utilisé.${consumption.preserved ? " Le ticket n’a pas été consommé." : ""}`);
+    return { itemId, lostGold:0, returnNodeId, preserved:consumption.preserved };
   }
 
   shortenCurrentEncounter(itemId = "shortcut") {
@@ -129,14 +133,17 @@ export class RunController {
     return { itemId, skippedNodeId };
   }
 
-  consumeConsumable(itemId) {
+  consumeConsumable(itemId, { preserveChance = 0, preserveReason = "" } = {}) {
     if (!this.gameState.hasItem(itemId)) throw new Error(`L’objet ${itemId} n’est pas possédé.`);
     const item = getItemById(itemId);
     if (item?.type !== "consumable") throw new Error(`L’objet ${itemId} n’est pas consommable.`);
-    const preserved = this.itemController.shouldPreserveConsumable(this.random);
+    const intrinsicPreserved = Math.max(0, Math.min(1, Number(preserveChance) || 0)) > this.random();
+    const recyclerPreserved = !intrinsicPreserved && this.itemController.shouldPreserveConsumable(this.random);
+    const preserved = intrinsicPreserved || recyclerPreserved;
     if (!preserved) this.gameState.removeItem(itemId);
-    this.onStatusChange(preserved ? `${item.name} a été conservé grâce au Recycleur.` : `${item.name} a été consommé.`);
-    return { itemId, preserved };
+    if (intrinsicPreserved) this.onStatusChange(`${item.name} a été conservé ${preserveReason || "grâce à son amélioration"}.`);
+    else this.onStatusChange(recyclerPreserved ? `${item.name} a été conservé grâce au Recycleur.` : `${item.name} a été consommé.`);
+    return { itemId, preserved, intrinsicPreserved, recyclerPreserved };
   }
 
   syncMapDom() {
