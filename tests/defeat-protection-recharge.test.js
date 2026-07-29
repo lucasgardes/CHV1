@@ -15,13 +15,16 @@ function createStateWithInventory(itemIds) {
   return { gameState, itemController };
 }
 
-test("Dernier rempart ne peut être consommé qu'une fois par partie", () => {
+test("Dernier rempart reste épuisé jusqu'à une restauration explicite", () => {
   const { gameState } = createStateWithInventory(["last-stand"]);
 
   assert.equal(gameState.isDefeatProtectionConsumed("last-stand"), false);
   assert.equal(gameState.consumeDefeatProtection("last-stand"), true);
   assert.equal(gameState.isDefeatProtectionConsumed("last-stand"), true);
   assert.equal(gameState.consumeDefeatProtection("last-stand"), false);
+  assert.equal(gameState.restoreDefeatProtection("last-stand"), true);
+  assert.equal(gameState.isDefeatProtectionConsumed("last-stand"), false);
+  assert.equal(gameState.restoreDefeatProtection("last-stand"), false);
 });
 
 test("la protection différée est consommée exactement une fois", () => {
@@ -84,11 +87,12 @@ test("Jeton de fuite se recharge après une élite", () => {
   assert.equal(itemController.isAvailable("escape-token"), true);
 });
 
-test("rechargeAll restaure tous les rechargeables sans restaurer un consommable", () => {
+test("rechargeAll restaure tous les rechargeables sans restaurer Dernier rempart", () => {
   const { gameState, itemController } = createStateWithInventory([
     "time-out",
     "cracked-stopwatch",
-    "emergency-button"
+    "emergency-button",
+    "last-stand"
   ]);
 
   itemController.consumeCharge("time-out");
@@ -97,6 +101,7 @@ test("rechargeAll restaure tous les rechargeables sans restaurer un consommable"
   itemController.finishActivation("cracked-stopwatch");
   itemController.consumeCharge("emergency-button");
   itemController.finishActivation("emergency-button");
+  gameState.consumeDefeatProtection("last-stand");
 
   itemController.rechargeAll();
 
@@ -104,4 +109,5 @@ test("rechargeAll restaure tous les rechargeables sans restaurer un consommable"
   assert.equal(itemController.isAvailable("cracked-stopwatch"), true);
   assert.equal(gameState.hasItem("emergency-button"), true);
   assert.equal(itemController.isAvailable("emergency-button"), false);
+  assert.equal(gameState.isDefeatProtectionConsumed("last-stand"), true);
 });
