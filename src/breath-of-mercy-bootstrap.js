@@ -45,8 +45,9 @@ function initialize() {
     if (finishingEncounterKey === encounterKey) return;
     finishingEncounterKey = encounterKey;
 
+    const blessingName = runtime.gameState.activeBlessingId === "temporal-debt" ? "Dette temporelle" : "Souffle de clémence";
     const status = document.getElementById("video-status");
-    if (status) status.textContent = `Souffle de clémence : ${reductionSeconds} secondes retirées.`;
+    if (status) status.textContent = `${blessingName} : ${reductionSeconds} secondes retirées.`;
 
     // Aller à la fin réelle laisse le VideoPlayerController déclencher son flux
     // habituel : arrêt du funscript, validation du round et attribution des gains.
