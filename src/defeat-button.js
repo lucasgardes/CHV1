@@ -45,19 +45,27 @@ function ensureProtectionAnimationStyles() {
     .protection-trigger--delayed{color:rgba(148,218,255,.82);background:radial-gradient(circle at center,rgba(92,184,255,.22),rgba(7,10,19,.9) 62%)}
     .protection-trigger--second-chance{color:rgba(255,213,115,.9);background:radial-gradient(circle at center,rgba(255,171,60,.25),rgba(24,10,7,.92) 64%)}
     .protection-trigger--second-chance::before,.protection-trigger--second-chance::after{border-radius:14%;transform:translate(-50%,-50%) rotate(45deg);animation-name:second-chance-ring}
+    .protection-trigger--last-stand{color:rgba(255,104,133,.92);background:radial-gradient(circle at center,rgba(188,30,72,.34),rgba(18,5,13,.94) 66%)}
+    .protection-trigger--last-stand::before,.protection-trigger--last-stand::after{width:24vmin;height:24vmin;border-width:3px;border-style:double;animation-name:last-stand-ring}
     .protection-trigger__card{position:relative;display:grid;justify-items:center;gap:12px;padding:30px 42px;border:1px solid currentColor;border-radius:20px;background:rgba(12,20,34,.9);box-shadow:0 0 70px color-mix(in srgb,currentColor 42%,transparent),inset 0 0 28px color-mix(in srgb,currentColor 12%,transparent);color:#fff;text-align:center;animation:protection-card .72s cubic-bezier(.2,.9,.2,1) both}
     .protection-trigger--second-chance .protection-trigger__card{border-radius:8px;background:linear-gradient(145deg,rgba(50,26,13,.94),rgba(20,13,12,.94));animation-name:second-chance-card}
+    .protection-trigger--last-stand .protection-trigger__card{border-width:2px;background:linear-gradient(155deg,rgba(65,9,28,.96),rgba(18,6,14,.96));box-shadow:0 0 90px rgba(255,55,101,.48),inset 0 0 36px rgba(255,104,133,.15);animation-name:last-stand-card}
     .protection-trigger__icon{display:grid;place-items:center;width:76px;height:76px;border:2px solid currentColor;border-radius:24px;background:color-mix(in srgb,currentColor 20%,transparent);font-size:38px;filter:drop-shadow(0 0 18px currentColor);animation:protection-pulse .8s ease-in-out infinite alternate}
     .protection-trigger--second-chance .protection-trigger__icon{border-radius:50%;animation:second-chance-spin .9s cubic-bezier(.2,.8,.2,1) both}
+    .protection-trigger--last-stand .protection-trigger__icon{border-radius:6px;transform:rotate(45deg);animation:last-stand-icon .9s cubic-bezier(.15,.85,.2,1) both}
+    .protection-trigger--last-stand .protection-trigger__icon>span{transform:rotate(-45deg)}
     .protection-trigger__eyebrow{margin:0;color:currentColor;font-size:12px;font-weight:800;letter-spacing:.18em;text-transform:uppercase}
     .protection-trigger__title{margin:0;font-size:clamp(24px,4vw,44px);letter-spacing:.04em;text-transform:uppercase}
     .protection-trigger__message{margin:0;color:#edf4ff;font-size:15px}
     @keyframes protection-card{0%{opacity:0;transform:scale(.72) translateY(24px);filter:blur(8px)}65%{opacity:1;transform:scale(1.04) translateY(0);filter:blur(0)}100%{opacity:1;transform:scale(1)}}
     @keyframes second-chance-card{0%{opacity:0;transform:translateX(-70px) rotate(-4deg);filter:blur(7px)}60%{opacity:1;transform:translateX(8px) rotate(1deg);filter:blur(0)}100%{opacity:1;transform:translateX(0) rotate(0)}}
+    @keyframes last-stand-card{0%{opacity:0;transform:scale(1.35);filter:blur(10px)}48%{opacity:1;transform:scale(.94);filter:blur(0)}72%{transform:scale(1.04)}100%{transform:scale(1)}}
     @keyframes protection-ring{0%{opacity:.9;transform:translate(-50%,-50%) scale(.35)}100%{opacity:0;transform:translate(-50%,-50%) scale(5.2)}}
     @keyframes second-chance-ring{0%{opacity:.95;transform:translate(-50%,-50%) rotate(45deg) scale(.3)}100%{opacity:0;transform:translate(-50%,-50%) rotate(225deg) scale(5)}}
+    @keyframes last-stand-ring{0%{opacity:1;transform:translate(-50%,-50%) scale(2.8)}55%{opacity:.9;transform:translate(-50%,-50%) scale(.75)}100%{opacity:0;transform:translate(-50%,-50%) scale(4.5)}}
     @keyframes protection-pulse{from{transform:scale(.96)}to{transform:scale(1.05)}}
     @keyframes second-chance-spin{0%{transform:rotate(-180deg) scale(.4);opacity:0}70%{transform:rotate(12deg) scale(1.1);opacity:1}100%{transform:rotate(0) scale(1)}}
+    @keyframes last-stand-icon{0%{opacity:0;transform:rotate(45deg) scale(2.2)}60%{opacity:1;transform:rotate(45deg) scale(.9)}100%{transform:rotate(45deg) scale(1)}}
     @keyframes protection-fade{0%,72%{opacity:1}100%{opacity:0}}
     @media (prefers-reduced-motion:reduce){.protection-trigger,.protection-trigger::before,.protection-trigger::after,.protection-trigger__card,.protection-trigger__icon{animation:none}.protection-trigger{opacity:1}}
   `;
@@ -79,6 +87,13 @@ function playProtectionAnimation(protectionId) {
       eyebrow:"Intervention d’urgence",
       title:"Deuxième chance",
       message:"La défaite est effacée — la run continue."
+    },
+    "last-stand": {
+      className:"protection-trigger--last-stand",
+      icon:"<span>◆</span>",
+      eyebrow:"Ultime protocole",
+      title:"Dernier rempart",
+      message:"La chute est refusée — le rempart est désormais épuisé."
     }
   };
   const variant = variants[protectionId];
@@ -177,7 +192,8 @@ async function applyProtectionResult(result, runtime) {
 
   const statusMessages = {
     "delayed-protection":"Protection différée déclenchée : la défaite est annulée.",
-    "second-chance":"Deuxième chance déclenchée : la défaite est annulée."
+    "second-chance":"Deuxième chance déclenchée : la défaite est annulée.",
+    "last-stand":"Dernier rempart déclenché : repose-toi à un feu de camp pour le recharger."
   };
   if (status) status.textContent = statusMessages[result.protectionId] ?? "Protection activée : le round est considéré comme réussi.";
 
