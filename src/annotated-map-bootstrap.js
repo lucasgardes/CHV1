@@ -12,12 +12,6 @@ function renderMap(runtime) {
     currentNode:runtime.mapController.getCurrentNode(),
     accessibleNodes:runtime.mapController.getAccessibleNodes()
   });
-  const inventory = document.getElementById("inventory-value");
-  if (inventory) {
-    inventory.textContent = runtime.gameState.inventory.length
-      ? runtime.gameState.inventory.join(", ")
-      : "Aucun";
-  }
 }
 
 function useAnnotatedMap(runtime) {
