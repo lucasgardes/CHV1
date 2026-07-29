@@ -3,7 +3,7 @@
 import { getBlessingById } from "./data/blessings.js";
 import { getGameRuntime } from "./game/runtime-access.js";
 
-const LOWER_DIFFICULTY = Object.freeze({ hard:"normal", normal:"easy", easy:"warmup" });
+const LOWER_DIFFICULTY = Object.freeze({ hard:"normal", normal:"easy" });
 
 function deterministicRoll(nodeId) {
   let hash = 2166136261;
