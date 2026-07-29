@@ -4,6 +4,7 @@ import "./media-import-bootstrap.js";
 import "./encounter-volume-bootstrap.js";
 import "./annotated-map-bootstrap.js";
 import "./danger-detector-bootstrap.js";
+import "./spyglass-bootstrap.js";
 import { getLocalMediaLibrary, scanLocalMediaLibrary } from "./game/local-media-library.js";
 import { getGameRuntime } from "./game/runtime-access.js";
 
