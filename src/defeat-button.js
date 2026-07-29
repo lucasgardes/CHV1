@@ -35,40 +35,67 @@ function ensureDialogStyles() {
 }
 
 function ensureProtectionAnimationStyles() {
-  if (document.querySelector('style[data-delayed-protection-animation="true"]')) return;
+  if (document.querySelector('style[data-protection-animation="true"]')) return;
   const style = document.createElement("style");
-  style.dataset.delayedProtectionAnimation = "true";
+  style.dataset.protectionAnimation = "true";
   style.textContent = `
-    .delayed-protection-trigger{position:fixed;inset:0;z-index:1400;display:grid;place-items:center;overflow:hidden;background:radial-gradient(circle at center,rgba(92,184,255,.22),rgba(7,10,19,.9) 62%);pointer-events:none;animation:delayed-protection-fade 1.65s ease both}
-    .delayed-protection-trigger::before,.delayed-protection-trigger::after{content:"";position:absolute;inset:50%;width:18vmin;height:18vmin;border:2px solid rgba(148,218,255,.75);border-radius:50%;transform:translate(-50%,-50%);box-shadow:0 0 40px rgba(92,184,255,.65);animation:delayed-protection-ring 1.4s ease-out both}
-    .delayed-protection-trigger::after{animation-delay:.16s}
-    .delayed-protection-trigger__card{position:relative;display:grid;justify-items:center;gap:12px;padding:30px 42px;border:1px solid rgba(177,225,255,.65);border-radius:20px;background:rgba(12,20,34,.88);box-shadow:0 0 70px rgba(69,165,255,.42),inset 0 0 28px rgba(133,211,255,.12);color:#eff9ff;text-align:center;animation:delayed-protection-card .72s cubic-bezier(.2,.9,.2,1) both}
-    .delayed-protection-trigger__icon{display:grid;place-items:center;width:76px;height:76px;border:2px solid rgba(189,231,255,.88);border-radius:24px;background:linear-gradient(145deg,rgba(119,204,255,.28),rgba(40,88,142,.22));font-size:38px;filter:drop-shadow(0 0 18px rgba(106,198,255,.8));animation:delayed-protection-pulse .8s ease-in-out infinite alternate}
-    .delayed-protection-trigger__eyebrow{margin:0;color:#9fdcff;font-size:12px;font-weight:800;letter-spacing:.18em;text-transform:uppercase}
-    .delayed-protection-trigger__title{margin:0;font-size:clamp(24px,4vw,44px);letter-spacing:.04em;text-transform:uppercase}
-    .delayed-protection-trigger__message{margin:0;color:#dcefff;font-size:15px}
-    @keyframes delayed-protection-card{0%{opacity:0;transform:scale(.72) translateY(24px);filter:blur(8px)}65%{opacity:1;transform:scale(1.04) translateY(0);filter:blur(0)}100%{opacity:1;transform:scale(1)}}
-    @keyframes delayed-protection-ring{0%{opacity:.9;transform:translate(-50%,-50%) scale(.35)}100%{opacity:0;transform:translate(-50%,-50%) scale(5.2)}}
-    @keyframes delayed-protection-pulse{from{transform:scale(.96)}to{transform:scale(1.05)}}
-    @keyframes delayed-protection-fade{0%,72%{opacity:1}100%{opacity:0}}
-    @media (prefers-reduced-motion:reduce){.delayed-protection-trigger,.delayed-protection-trigger::before,.delayed-protection-trigger::after,.delayed-protection-trigger__card,.delayed-protection-trigger__icon{animation:none}.delayed-protection-trigger{opacity:1}}
+    .protection-trigger{position:fixed;inset:0;z-index:1400;display:grid;place-items:center;overflow:hidden;pointer-events:none;animation:protection-fade 1.65s ease both}
+    .protection-trigger::before,.protection-trigger::after{content:"";position:absolute;inset:50%;width:18vmin;height:18vmin;border:2px solid currentColor;border-radius:50%;transform:translate(-50%,-50%);animation:protection-ring 1.4s ease-out both}
+    .protection-trigger::after{animation-delay:.16s}
+    .protection-trigger--delayed{color:rgba(148,218,255,.82);background:radial-gradient(circle at center,rgba(92,184,255,.22),rgba(7,10,19,.9) 62%)}
+    .protection-trigger--second-chance{color:rgba(255,213,115,.9);background:radial-gradient(circle at center,rgba(255,171,60,.25),rgba(24,10,7,.92) 64%)}
+    .protection-trigger--second-chance::before,.protection-trigger--second-chance::after{border-radius:14%;transform:translate(-50%,-50%) rotate(45deg);animation-name:second-chance-ring}
+    .protection-trigger__card{position:relative;display:grid;justify-items:center;gap:12px;padding:30px 42px;border:1px solid currentColor;border-radius:20px;background:rgba(12,20,34,.9);box-shadow:0 0 70px color-mix(in srgb,currentColor 42%,transparent),inset 0 0 28px color-mix(in srgb,currentColor 12%,transparent);color:#fff;text-align:center;animation:protection-card .72s cubic-bezier(.2,.9,.2,1) both}
+    .protection-trigger--second-chance .protection-trigger__card{border-radius:8px;background:linear-gradient(145deg,rgba(50,26,13,.94),rgba(20,13,12,.94));animation-name:second-chance-card}
+    .protection-trigger__icon{display:grid;place-items:center;width:76px;height:76px;border:2px solid currentColor;border-radius:24px;background:color-mix(in srgb,currentColor 20%,transparent);font-size:38px;filter:drop-shadow(0 0 18px currentColor);animation:protection-pulse .8s ease-in-out infinite alternate}
+    .protection-trigger--second-chance .protection-trigger__icon{border-radius:50%;animation:second-chance-spin .9s cubic-bezier(.2,.8,.2,1) both}
+    .protection-trigger__eyebrow{margin:0;color:currentColor;font-size:12px;font-weight:800;letter-spacing:.18em;text-transform:uppercase}
+    .protection-trigger__title{margin:0;font-size:clamp(24px,4vw,44px);letter-spacing:.04em;text-transform:uppercase}
+    .protection-trigger__message{margin:0;color:#edf4ff;font-size:15px}
+    @keyframes protection-card{0%{opacity:0;transform:scale(.72) translateY(24px);filter:blur(8px)}65%{opacity:1;transform:scale(1.04) translateY(0);filter:blur(0)}100%{opacity:1;transform:scale(1)}}
+    @keyframes second-chance-card{0%{opacity:0;transform:translateX(-70px) rotate(-4deg);filter:blur(7px)}60%{opacity:1;transform:translateX(8px) rotate(1deg);filter:blur(0)}100%{opacity:1;transform:translateX(0) rotate(0)}}
+    @keyframes protection-ring{0%{opacity:.9;transform:translate(-50%,-50%) scale(.35)}100%{opacity:0;transform:translate(-50%,-50%) scale(5.2)}}
+    @keyframes second-chance-ring{0%{opacity:.95;transform:translate(-50%,-50%) rotate(45deg) scale(.3)}100%{opacity:0;transform:translate(-50%,-50%) rotate(225deg) scale(5)}}
+    @keyframes protection-pulse{from{transform:scale(.96)}to{transform:scale(1.05)}}
+    @keyframes second-chance-spin{0%{transform:rotate(-180deg) scale(.4);opacity:0}70%{transform:rotate(12deg) scale(1.1);opacity:1}100%{transform:rotate(0) scale(1)}}
+    @keyframes protection-fade{0%,72%{opacity:1}100%{opacity:0}}
+    @media (prefers-reduced-motion:reduce){.protection-trigger,.protection-trigger::before,.protection-trigger::after,.protection-trigger__card,.protection-trigger__icon{animation:none}.protection-trigger{opacity:1}}
   `;
   document.head.append(style);
 }
 
-function playDelayedProtectionAnimation() {
+function playProtectionAnimation(protectionId) {
+  const variants = {
+    "delayed-protection": {
+      className:"protection-trigger--delayed",
+      icon:"⬡",
+      eyebrow:"Protocole de secours",
+      title:"Protection différée",
+      message:"Défaite annulée — le round est sécurisé."
+    },
+    "second-chance": {
+      className:"protection-trigger--second-chance",
+      icon:"↻",
+      eyebrow:"Intervention d’urgence",
+      title:"Deuxième chance",
+      message:"La défaite est effacée — la run continue."
+    }
+  };
+  const variant = variants[protectionId];
+  if (!variant) return Promise.resolve();
+
   ensureProtectionAnimationStyles();
-  document.querySelector(".delayed-protection-trigger")?.remove();
+  document.querySelector(".protection-trigger")?.remove();
   const overlay = document.createElement("div");
-  overlay.className = "delayed-protection-trigger";
+  overlay.className = `protection-trigger ${variant.className}`;
   overlay.setAttribute("role", "status");
   overlay.setAttribute("aria-live", "assertive");
   overlay.innerHTML = `
-    <section class="delayed-protection-trigger__card">
-      <span class="delayed-protection-trigger__icon" aria-hidden="true">⬡</span>
-      <p class="delayed-protection-trigger__eyebrow">Protocole de secours</p>
-      <h2 class="delayed-protection-trigger__title">Protection différée</h2>
-      <p class="delayed-protection-trigger__message">Défaite annulée — le round est sécurisé.</p>
+    <section class="protection-trigger__card">
+      <span class="protection-trigger__icon" aria-hidden="true">${variant.icon}</span>
+      <p class="protection-trigger__eyebrow">${variant.eyebrow}</p>
+      <h2 class="protection-trigger__title">${variant.title}</h2>
+      <p class="protection-trigger__message">${variant.message}</p>
     </section>
   `;
   document.body.append(overlay);
@@ -143,16 +170,16 @@ async function applyProtectionResult(result, runtime) {
   if (result.action !== "complete-current-encounter") return;
   if (!runtime.encounterController) throw new Error("Le contrôleur de rencontre n’est pas disponible.");
 
-  if (result.protectionId === "delayed-protection") {
-    await playDelayedProtectionAnimation();
-  }
+  await playProtectionAnimation(result.protectionId);
 
   const completion = await runtime.encounterController.complete();
   if (!completion) throw new Error("La rencontre protégée n’a pas pu être terminée.");
 
-  if (status) status.textContent = result.protectionId === "delayed-protection"
-    ? "Protection différée déclenchée : la défaite est annulée."
-    : "Protection activée : le round est considéré comme réussi.";
+  const statusMessages = {
+    "delayed-protection":"Protection différée déclenchée : la défaite est annulée.",
+    "second-chance":"Deuxième chance déclenchée : la défaite est annulée."
+  };
+  if (status) status.textContent = statusMessages[result.protectionId] ?? "Protection activée : le round est considéré comme réussi.";
 
   if (completion.type === "boss") {
     globalThis.__CHV1_PHASE_ONE__?.controller?.completeBoss();
