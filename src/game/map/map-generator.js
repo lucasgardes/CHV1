@@ -88,9 +88,27 @@ function createNode({ row, lane, type, rowCount, random, eventId = null }) {
   else if (type === "special") node.specialId = `special-${row}-${lane}`;
   return node;
 }
-function chooseEventId(availableEventIds, random) {
+function chooseEventId(availableEventIds, random, eventWeights = null) {
   if (!availableEventIds.length) return null;
-  return availableEventIds.splice(Math.floor(random() * availableEventIds.length), 1)[0];
+  if (!eventWeights) return availableEventIds.splice(Math.floor(random() * availableEventIds.length), 1)[0];
+
+  const availableByTone = new Map();
+  for (const eventId of availableEventIds) {
+    const tone = EVENTS.find((event) => event.id === eventId)?.tone;
+    if (!tone) continue;
+    if (!availableByTone.has(tone)) availableByTone.set(tone, []);
+    availableByTone.get(tone).push(eventId);
+  }
+  const weightedTones = Object.entries(eventWeights)
+    .map(([value, weight]) => ({value, weight:Math.max(0, Number(weight) || 0)}))
+    .filter((entry) => entry.weight > 0 && availableByTone.get(entry.value)?.length);
+  if (!weightedTones.length) return availableEventIds.splice(Math.floor(random() * availableEventIds.length), 1)[0];
+
+  const selectedTone = pickWeighted(weightedTones, random);
+  const pool = availableByTone.get(selectedTone);
+  const selectedId = pool[Math.floor(random() * pool.length)];
+  availableEventIds.splice(availableEventIds.indexOf(selectedId), 1);
+  return selectedId;
 }
 function isVideoType(type) { return type === "normal" || type === "elite"; }
 function isSafeTypeSequence(types) {
@@ -133,7 +151,7 @@ function pickNonVideoType(availableEventIds, random) {
   if (type !== "special") return type;
   return availableEventIds.length > 0 && random() < 0.5 ? "event" : "campfire";
 }
-function assignNodeTypes({ rowCount, random }) {
+function assignNodeTypes({ rowCount, random, eventWeights = null }) {
   const assignments = new Map();
   const availableEventIds = shuffle(EVENTS.map((event) => event.id), random);
   const rowTypePlan = createRowTypePlan(rowCount, random);
@@ -141,7 +159,7 @@ function assignNodeTypes({ rowCount, random }) {
     const plannedType = rowTypePlan[row - 1];
     for (const lane of LANES) {
       const type = plannedType === "non-video" ? pickNonVideoType(availableEventIds, random) : plannedType;
-      const eventId = type === "event" ? chooseEventId(availableEventIds, random) : null;
+      const eventId = type === "event" ? chooseEventId(availableEventIds, random, eventWeights) : null;
       assignments.set(`${row}:${lane}`, { type, eventId });
     }
   }
@@ -180,10 +198,10 @@ function createHiddenEncounter({ rows, nodes, random }) {
   nodes.push(hiddenNode);
   return {nodeId:hiddenNode.id,sourceNodeId:sourceNode.id,targetNodeId:targetNode.id};
 }
-function generateCandidateMap(seed) {
+function generateCandidateMap(seed, eventWeights) {
   const random = createSeededRandom(seed);
   const rowCount = randomInteger(MIN_ROWS, MAX_ROWS, random);
-  const assignments = assignNodeTypes({rowCount,random});
+  const assignments = assignNodeTypes({rowCount,random,eventWeights});
   const rows = [];
   const nodes = [];
   const start = createNode({row:0,lane:1,type:"start",rowCount,random});
@@ -196,14 +214,14 @@ function generateCandidateMap(seed) {
   rows.push([boss]); nodes.push(boss);
   for (let row = 0; row < rows.length - 1; row += 1) connectRows(rows[row], rows[row + 1], random);
   const hiddenConnection = createHiddenEncounter({rows,nodes,random});
-  return {seed,rows,nodes,startNodeId:"start",bossNodeId:boss.id,hiddenConnection};
+  return {seed,rows,nodes,startNodeId:"start",bossNodeId:boss.id,hiddenConnection,eventWeights:eventWeights ? {...eventWeights} : null};
 }
-export function generateMap({ seed, maximumAttempts = 1000 } = {}) {
+export function generateMap({ seed, maximumAttempts = 1000, eventWeights = null } = {}) {
   const initialSeed = normalizeSeed(seed);
   let lastValidation = null;
   for (let attempt = 0; attempt < maximumAttempts; attempt += 1) {
     const candidateSeed = (initialSeed + attempt) >>> 0;
-    const map = generateCandidateMap(candidateSeed);
+    const map = generateCandidateMap(candidateSeed, eventWeights);
     const validation = validateMap(map);
     if (validation.valid) {
       map.validation = validation;
