@@ -136,7 +136,38 @@ export class CampfireView {
   }
 
   showArchive(archive,{alreadyExplored=false,onContinue=()=>{}}={}){
-    this.mainChoices.hidden=true;this.upgradeList.hidden=false;this.upgradeList.replaceChildren();
-    const terminal=createElement("article",`campfire-archive-terminal${alreadyExplored?" is-corrupted":""}`);const header=createElement("header","campfire-archive-terminal__header");header.append(createElement("span","campfire-terminal-lights","● ● ●"),createElement("strong","","TERMINAL HORS RÉSEAU"));const metadata=createElement("div","campfire-archive-metadata");metadata.append(createElement("span","",archive?.title??"Archive clandestine"),createElement("span","",archive?.author??"Auteur inconnu"));const text=createElement("p","campfire-archive-text",alreadyExplored?"Tu reconnais cette pièce. Aucun nouveau message n’a été laissé.":archive?.text??"Le message est illisible.");const button=createElement("button","secondary-button","Fermer le terminal et repartir");button.type="button";button.addEventListener("click",onContinue);terminal.append(header,metadata,text,button);this.upgradeList.append(terminal);this.message.textContent=alreadyExplored?"Cette archive était déjà connue.":"Nouvelle archive ajoutée aux souvenirs du cobaye 426.";
+    this.mainChoices.hidden=true;
+    this.upgradeList.hidden=false;
+    this.upgradeList.replaceChildren();
+
+    const dossier=createElement("article",`campfire-archive-dossier${alreadyExplored?" is-corrupted":""}`);
+    const folderHeader=createElement("header","campfire-dossier-header");
+    const fileIdentity=createElement("div","campfire-dossier-identity");
+    fileIdentity.append(createElement("span","campfire-dossier-stripes","///"),createElement("div","","DOSSIER CHV1-426\nARCHIVE CLANDESTINE"));
+    const classification=createElement("div","campfire-dossier-classification","CLASSIFIÉ\nACCÈS NON AUTORISÉ");
+    folderHeader.append(fileIdentity,classification);
+
+    const paper=createElement("section","campfire-dossier-paper");
+    const paperHeading=createElement("header","campfire-dossier-paper-heading");
+    const headingCopy=createElement("div","");
+    headingCopy.append(createElement("p","campfire-dossier-kicker",alreadyExplored?"ARCHIVE DÉJÀ MÉMORISÉE":"DOCUMENT RÉCUPÉRÉ"),createElement("h3","",archive?.title??"Archive clandestine"),createElement("p","campfire-dossier-author",archive?.author??"Auteur inconnu"));
+    const stamp=createElement("div","campfire-dossier-stamp","CHV1\n426");
+    paperHeading.append(headingCopy,stamp);
+
+    const body=createElement("div","campfire-dossier-body");
+    const text=createElement("p","campfire-dossier-text",alreadyExplored?"Tu reconnais cette pièce. Le document est toujours là, mais son contenu est déjà gravé dans tes souvenirs. Aucun nouveau message n’a été laissé.":archive?.text??"Le document est trop endommagé pour être lu.");
+    const redaction=createElement("div","campfire-dossier-redaction","LE RESTE DU RAPPORT A ÉTÉ CAVIARDÉ.");
+    body.append(text,redaction);
+
+    const footer=createElement("footer","campfire-dossier-footer");
+    footer.append(createElement("span","","SOURCE : PIÈCE TECHNIQUE NON SURVEILLÉE"),createElement("span","",`MÉMOIRE COBAYE 426 // ${alreadyExplored?"CONNUE":"NOUVELLE"}`));
+    const button=createElement("button","campfire-dossier-close","Refermer le dossier et repartir");
+    button.type="button";
+    button.addEventListener("click",onContinue);
+
+    paper.append(paperHeading,body,footer,button);
+    dossier.append(folderHeader,paper);
+    this.upgradeList.append(dossier);
+    this.message.textContent=alreadyExplored?"Cette archive était déjà connue.":"Nouvelle archive ajoutée aux souvenirs du cobaye 426.";
   }
 }
