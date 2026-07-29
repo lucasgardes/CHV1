@@ -1,6 +1,16 @@
 "use strict";
 
+function ensureEncounterMinimalStyles() {
+  if (document.querySelector('link[data-encounter-minimal="true"]')) return;
+  const link = document.createElement("link");
+  link.rel = "stylesheet";
+  link.href = "./encounter-minimal.css";
+  link.dataset.encounterMinimal = "true";
+  document.head.append(link);
+}
+
 function initializeEncounterVolume() {
+  ensureEncounterMinimalStyles();
   const stage = document.querySelector("#encounter-screen .encounter-stage");
   const video = document.getElementById("round-video");
   if (!(stage instanceof HTMLElement) || !(video instanceof HTMLVideoElement)) return;
