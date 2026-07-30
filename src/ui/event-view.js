@@ -85,6 +85,20 @@ export class EventView {
     return context;
   }
 
+  showResolutionError(error, retry = () => this.render(this.currentEvent)) {
+    this.resolving = false;
+    console.error("Impossible de résoudre l’événement :", error);
+    this.eventTitle.textContent = "Erreur pendant l’événement";
+    this.eventDescription.textContent = error?.message || "Le choix n’a pas pu être appliqué.";
+    this.eventChoiceList.replaceChildren();
+    const retryButton = document.createElement("button");
+    retryButton.type = "button";
+    retryButton.className = "event-choice-button";
+    retryButton.textContent = "Revenir aux choix";
+    retryButton.addEventListener("click", retry);
+    this.eventChoiceList.append(retryButton);
+  }
+
   appendChoice(event, choice) {
     const button = document.createElement("button");
     button.type = "button";
@@ -109,9 +123,7 @@ export class EventView {
       try {
         await this.resolveChoice(choice, choice.effect);
       } catch (error) {
-        this.resolving = false;
-        console.error("Impossible de résoudre l’événement :", error);
-        this.enableChoices();
+        this.showResolutionError(error);
       }
     });
     this.eventChoiceList.append(button);
@@ -140,9 +152,7 @@ export class EventView {
         try {
           await this.resolveChoice(choice, resolvedEffect, { selectedItemId: item.id, selectedItemName: item.name });
         } catch (error) {
-          this.resolving = false;
-          console.error("Impossible d’appliquer le choix d’objet :", error);
-          this.render(this.currentEvent);
+          this.showResolutionError(error, () => this.showOwnedItemSelection(choice));
         }
       });
       this.eventChoiceList.append(button);
@@ -188,9 +198,7 @@ export class EventView {
             { givenItemId: giveItem.id, givenItemName: giveItem.name, receivedItemId: receiveItem.id, receivedItemName: receiveItem.name }
           );
         } catch (error) {
-          this.resolving = false;
-          console.error("Impossible d’échanger les objets :", error);
-          this.render(this.currentEvent);
+          this.showResolutionError(error, () => this.showExchangeOwnedSelection(choice, receiveItem));
         }
       });
       this.eventChoiceList.append(button);
@@ -216,7 +224,16 @@ export class EventView {
       button.type = "button";
       button.className = "event-choice-button";
       button.textContent = choice.effect.emptyLabel || "Continuer";
-      button.addEventListener("click", () => void this.resolveChoice(choice, { type: "none" }, { nestedContext: context }));
+      button.addEventListener("click", async () => {
+        if (this.resolving) return;
+        this.resolving = true;
+        this.disableChoices();
+        try {
+          await this.resolveChoice(choice, { type: "none" }, { nestedContext: context });
+        } catch (error) {
+          this.showResolutionError(error, () => this.showNestedChoice(choice));
+        }
+      });
       this.eventChoiceList.append(button);
       return;
     }
@@ -242,9 +259,7 @@ export class EventView {
             contextItemName: context.itemName
           });
         } catch (error) {
-          this.resolving = false;
-          console.error("Impossible d’appliquer le choix imbriqué :", error);
-          this.showNestedChoice(choice);
+          this.showResolutionError(error, () => this.showNestedChoice(choice));
         }
       });
       this.eventChoiceList.append(button);
@@ -300,7 +315,7 @@ export class EventView {
   async resolveChoice(choice, effect = choice.effect, selection = {}) {
     const runtime = getGameRuntime();
     const { gameState } = runtime;
-    if (!gameState || !runtime.mapController || !runtime.screenController) throw new Error("Le moteur de partie n’est pas disponible.");
+    if (!gameState) throw new Error("L’état de partie n’est pas disponible.");
     if (gameState.status !== GAME_STATUS.EVENT) throw new Error("Aucun événement n’est actuellement ouvert.");
     if (!this.eventNodeId || gameState.currentNodeId !== this.eventNodeId) throw new Error("La position de l’événement a changé pendant sa résolution.");
 
@@ -322,23 +337,35 @@ export class EventView {
     continueButton.type = "button";
     continueButton.className = "event-choice-button";
     continueButton.textContent = "Continuer vers la carte";
-    continueButton.addEventListener("click", () => this.finishEvent(choice, result, selection));
+    continueButton.addEventListener("click", () => {
+      try {
+        this.finishEvent(choice, result, selection);
+      } catch (error) {
+        this.showResolutionError(error, () => this.finishEvent(choice, result, selection));
+      }
+    });
     this.eventChoiceList.append(continueButton);
   }
 
   finishEvent(choice, result, selection = {}) {
     const runtime = getGameRuntime();
-    const { gameState, mapController, screenController, mapView } = runtime;
+    const { gameState, mapController, screenController, mapView, runController } = runtime;
     if (!gameState || gameState.status !== GAME_STATUS.EVENT) return;
 
     gameState.completeCurrentNode();
     gameState.setStatus(GAME_STATUS.MAP);
-    screenController.showMap();
-    mapView?.render({
-      gameState,
-      currentNode: mapController.getCurrentNode(),
-      accessibleNodes: mapController.getAccessibleNodes()
-    });
+
+    if (typeof runController?.renderMap === "function") {
+      runController.renderMap();
+    } else {
+      if (!mapController || !screenController) throw new Error("Le contrôleur de carte n’est pas disponible.");
+      screenController.showMap();
+      mapView?.render({
+        gameState,
+        currentNode: mapController.getCurrentNode(),
+        accessibleNodes: mapController.getAccessibleNodes()
+      });
+    }
 
     const status = document.getElementById("video-status");
     if (status) status.textContent = this.describeResult(result);
@@ -502,9 +529,7 @@ export class EventView {
       try {
         await action();
       } catch (error) {
-        this.resolving = false;
-        console.error(`Impossible d’exécuter « ${label} » :`, error);
-        this.enableChoices();
+        this.showResolutionError(error);
       }
     });
     this.eventChoiceList.append(button);
